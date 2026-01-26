@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WebGL – Primitive Shapes</title>
+</head>
+<body>
+
+<h3>WebGL Primitive Shapes</h3>
+
+<canvas id="gl-canvas" width="500" height="500"></canvas>
+
+<script id="vs" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+void main() {
+  gl_Position = vPosition;
+}
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+precision mediump float;
+void main() {
+  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+</script>
+
+<script src="../common/MV.js"></script>
+<script src="../common/initShaders.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>

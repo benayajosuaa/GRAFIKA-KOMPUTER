@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wave Animation</title>
+</head>
+<body>
+
+<h3>Wave Animation (WebGL)</h3>
+<canvas id="gl-canvas" width="600" height="400"></canvas>
+
+<script id="vs" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+uniform float time;
+
+void main() {
+  float y = vPosition.y + 0.15 * sin(10.0 * vPosition.x + time);
+  gl_Position = vec4(vPosition.x, y, 0.0, 1.0);
+}
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+precision mediump float;
+void main() {
+  gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+}
+</script>
+
+<script src="../common/MV.js"></script>
+<script src="../common/initShaders.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
