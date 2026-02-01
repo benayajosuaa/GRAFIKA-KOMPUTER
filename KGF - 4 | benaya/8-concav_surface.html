@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Concave Surface</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      cursor: crosshair;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Concave Polygon (Click to Test)</h3>
+<canvas id="canvas" width="500" height="350"></canvas>
+<div id="info">Klik di dalam atau luar poligon</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+// ================= CONCAVE POLYGON =================
+// bentuk cekung (kayak panah)
+const polygon = [
+  { x: 150, y: 100 },
+  { x: 350, y: 100 },
+  { x: 350, y: 180 },
+  { x: 260, y: 180 },
+  { x: 250, y: 250 },
+  { x: 240, y: 180 },
+  { x: 150, y: 180 }
+];
+
+// ================= DRAW =================
+function draw(highlight = false) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.beginPath();
+  polygon.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+
+  ctx.fillStyle = highlight ? "rgba(255,0,0,0.3)" : "rgba(0,150,255,0.3)";
+  ctx.fill();
+
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+draw();
+
+// ================= POINT IN POLYGON =================
+// Ray-casting algorithm
+function pointInPolygon(point, vs) {
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i].x, yi = vs[i].y;
+    const xj = vs[j].x, yj = vs[j].y;
+
+    const intersect =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// ================= CLICK EVENT =================
+canvas.addEventListener("click", e => {
+  const point = { x: e.offsetX, y: e.offsetY };
+  const inside = pointInPolygon(point, polygon);
+
+  draw(inside);
+
+  info.textContent = inside
+    ? "Titik berada DI DALAM poligon cekung"
+    : "Titik berada DI LUAR poligon cekung";
+
+  // gambar titik klik
+  ctx.fillStyle = inside ? "red" : "black";
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+  ctx.fill();
+});
+</script>
+
+</body>
+</html>

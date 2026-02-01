@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Normal Vector</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Normal Vector</h3>
+<canvas id="canvas" width="500" height="300"></canvas>
+<div id="info">Klik Rotate untuk memutar garis</div>
+<button id="rotate">Rotate Line</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+let angle = 0;
+
+// ================= DRAW =================
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // center
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+
+  // line direction
+  const length = 100;
+  const x2 = cx + length * Math.cos(angle);
+  const y2 = cy + length * Math.sin(angle);
+
+  // draw line
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  // compute normal (perpendicular)
+  const nx = -Math.sin(angle);
+  const ny =  Math.cos(angle);
+
+  // draw normal
+  ctx.strokeStyle = "red";
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(
+    x2 + nx * 50,
+    y2 + ny * 50
+  );
+  ctx.stroke();
+
+  // labels
+  ctx.fillStyle = "black";
+  ctx.fillText("Direction", x2 + 5, y2 + 5);
+  ctx.fillStyle = "red";
+  ctx.fillText("Normal", x2 + nx * 50 + 5, y2 + ny * 50 + 5);
+}
+
+draw();
+
+// ================= INTERACTION =================
+document.getElementById("rotate").onclick = () => {
+  angle += Math.PI / 12;
+  draw();
+};
+</script>
+
+</body>
+</html>

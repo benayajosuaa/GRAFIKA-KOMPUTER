@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Picking Bounding Box</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      cursor: pointer;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Click object to pick (Bounding Box)</h3>
+<canvas id="canvas" width="600" height="350"></canvas>
+<div id="info">Picked Object: None</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+// ================= OBJECT DATA =================
+const objects = [
+  {
+    type: "rect",
+    name: "Red Square",
+    x: 80,
+    y: 130,
+    w: 100,
+    h: 100,
+    color: "red",
+    selected: false
+  },
+  {
+    type: "circle",
+    name: "Green Circle",
+    x: 300,
+    y: 180,
+    r: 50,
+    color: "lime",
+    selected: false
+  },
+  {
+    type: "triangle",
+    name: "Blue Triangle",
+    x: 500,
+    y: 130,
+    w: 100,
+    h: 100,
+    color: "blue",
+    selected: false
+  }
+];
+
+// ================= DRAW =================
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  objects.forEach(obj => {
+    ctx.fillStyle = obj.color;
+
+    // DRAW SHAPE
+    if (obj.type === "rect") {
+      ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+    }
+
+    if (obj.type === "circle") {
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (obj.type === "triangle") {
+      ctx.beginPath();
+      ctx.moveTo(obj.x, obj.y + obj.h);
+      ctx.lineTo(obj.x + obj.w / 2, obj.y);
+      ctx.lineTo(obj.x + obj.w, obj.y + obj.h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // DRAW BOUNDING BOX
+    ctx.strokeStyle = obj.selected ? "black" : "rgba(0,0,0,0.3)";
+    ctx.lineWidth = obj.selected ? 3 : 1;
+
+    if (obj.type === "rect") {
+      ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+    }
+
+    if (obj.type === "circle") {
+      ctx.strokeRect(
+        obj.x - obj.r,
+        obj.y - obj.r,
+        obj.r * 2,
+        obj.r * 2
+      );
+    }
+
+    if (obj.type === "triangle") {
+      ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+    }
+  });
+}
+
+draw();
+
+// ================= PICKING (BOUNDING BOX) =================
+canvas.addEventListener("click", e => {
+  const mx = e.offsetX;
+  const my = e.offsetY;
+
+  let picked = null;
+
+  objects.forEach(obj => {
+    obj.selected = false;
+
+    let hit = false;
+
+    if (obj.type === "rect") {
+      hit =
+        mx >= obj.x &&
+        mx <= obj.x + obj.w &&
+        my >= obj.y &&
+        my <= obj.y + obj.h;
+    }
+
+    if (obj.type === "circle") {
+      hit =
+        mx >= obj.x - obj.r &&
+        mx <= obj.x + obj.r &&
+        my >= obj.y - obj.r &&
+        my <= obj.y + obj.r;
+    }
+
+    if (obj.type === "triangle") {
+      hit =
+        mx >= obj.x &&
+        mx <= obj.x + obj.w &&
+        my >= obj.y &&
+        my <= obj.y + obj.h;
+    }
+
+    if (hit) {
+      picked = obj;
+      obj.selected = true;
+    }
+  });
+
+  info.textContent = picked
+    ? `Picked Object: ${picked.name}`
+    : "Picked Object: None";
+
+  draw();
+});
+</script>
+
+</body>
+</html>

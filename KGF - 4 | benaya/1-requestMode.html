@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Request Mode - requestAnimationFrame</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f2f2f2;
+    }
+
+    canvas {
+      border: 2px solid #000;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas" width="400" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let angle = 0;
+
+function render() {
+  // clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // save state
+  ctx.save();
+
+  // move origin to center
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+
+  // rotate
+  ctx.rotate(angle);
+
+  // draw square
+  ctx.fillStyle = "blue";
+  ctx.fillRect(-50, -50, 100, 100);
+
+  // restore state
+  ctx.restore();
+
+  angle += 0.02;
+
+  // request next frame
+  requestAnimationFrame(render);
+}
+
+// start animation
+render();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Window Coordinate + Point</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      cursor: crosshair;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas" width="400" height="400"></canvas>
+<div id="info">Gerakkan mouse atau klik di canvas</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+// mouse move → tampilkan koordinat
+canvas.addEventListener("mousemove", function (e) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+  info.textContent = `Mouse → X: ${x}, Y: ${y}`;
+});
+
+// klik → gambar titik
+canvas.addEventListener("click", function (e) {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  info.textContent = `Klik → X: ${x}, Y: ${y}`;
+});
+
+// mouse keluar canvas
+canvas.addEventListener("mouseleave", function () {
+  info.textContent = "Mouse di luar canvas";
+});
+</script>
+
+</body>
+</html>

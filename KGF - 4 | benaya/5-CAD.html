@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini CAD - Draw Line</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      cursor: crosshair;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas" width="500" height="400"></canvas>
+<div id="info">Klik titik awal, lalu klik titik akhir</div>
+<button id="clear">Clear</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+let startPoint = null;
+let lines = [];
+
+// redraw semua garis
+function redraw(previewPoint = null) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // garis permanen
+  ctx.strokeStyle = "black";
+  lines.forEach(line => {
+    ctx.beginPath();
+    ctx.moveTo(line.x1, line.y1);
+    ctx.lineTo(line.x2, line.y2);
+    ctx.stroke();
+  });
+
+  // preview garis (saat mouse gerak)
+  if (startPoint && previewPoint) {
+    ctx.strokeStyle = "red";
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(startPoint.x, startPoint.y);
+    ctx.lineTo(previewPoint.x, previewPoint.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// klik canvas
+canvas.addEventListener("click", e => {
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  if (!startPoint) {
+    startPoint = { x, y };
+    info.textContent = `Titik awal: (${x}, ${y})`;
+  } else {
+    lines.push({
+      x1: startPoint.x,
+      y1: startPoint.y,
+      x2: x,
+      y2: y
+    });
+    startPoint = null;
+    info.textContent = "Klik titik awal berikutnya";
+    redraw();
+  }
+});
+
+// mouse move → preview garis
+canvas.addEventListener("mousemove", e => {
+  if (startPoint) {
+    redraw({ x: e.offsetX, y: e.offsetY });
+  }
+});
+
+// clear canvas
+document.getElementById("clear").onclick = () => {
+  lines = [];
+  startPoint = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  info.textContent = "Canvas dibersihkan";
+};
+</script>
+
+</body>
+</html>

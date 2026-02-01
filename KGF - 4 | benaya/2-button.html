@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Button Control - Scale Object</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div>
+  <button id="plus">➕ Perbesar</button>
+  <button id="minus">➖ Perkecil</button>
+</div>
+
+<canvas id="canvas" width="400" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let size = 80;
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "blue";
+  ctx.fillRect(
+    canvas.width / 2 - size / 2,
+    canvas.height / 2 - size / 2,
+    size,
+    size
+  );
+}
+
+// tombol perbesar
+document.getElementById("plus").onclick = () => {
+  size += 10;
+  if (size > 200) size = 200; // batas biar nggak kebablasan
+  draw();
+};
+
+// tombol perkecil
+document.getElementById("minus").onclick = () => {
+  size -= 10;
+  if (size < 20) size = 20;
+  draw();
+};
+
+// gambar awal
+draw();
+</script>
+
+</body>
+</html>

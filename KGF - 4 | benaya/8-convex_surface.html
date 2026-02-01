@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Convex Surface</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+      cursor: crosshair;
+    }
+
+    #info {
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Convex Polygon (Click to Test)</h3>
+<canvas id="canvas" width="500" height="350"></canvas>
+<div id="info">Klik di dalam atau luar poligon</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+// ================= CONVEX POLYGON =================
+// bentuk cembung (heksagon)
+const polygon = [
+  { x: 250, y: 80 },
+  { x: 340, y: 130 },
+  { x: 340, y: 220 },
+  { x: 250, y: 270 },
+  { x: 160, y: 220 },
+  { x: 160, y: 130 }
+];
+
+// ================= DRAW =================
+function draw(highlight = false) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.beginPath();
+  polygon.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+
+  ctx.fillStyle = highlight
+    ? "rgba(0,255,0,0.3)"
+    : "rgba(0,0,255,0.3)";
+  ctx.fill();
+
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+draw();
+
+// ================= POINT IN CONVEX POLYGON =================
+// metode cross product (semua sisi harus searah)
+function pointInConvexPolygon(point, poly) {
+  let sign = null;
+
+  for (let i = 0; i < poly.length; i++) {
+    const p1 = poly[i];
+    const p2 = poly[(i + 1) % poly.length];
+
+    const cross =
+      (p2.x - p1.x) * (point.y - p1.y) -
+      (p2.y - p1.y) * (point.x - p1.x);
+
+    if (cross === 0) continue;
+
+    const currentSign = cross > 0;
+    if (sign === null) sign = currentSign;
+    else if (sign !== currentSign) return false;
+  }
+
+  return true;
+}
+
+// ================= CLICK EVENT =================
+canvas.addEventListener("click", e => {
+  const point = { x: e.offsetX, y: e.offsetY };
+  const inside = pointInConvexPolygon(point, polygon);
+
+  draw(inside);
+
+  info.textContent = inside
+    ? "Titik berada DI DALAM poligon cembung"
+    : "Titik berada DI LUAR poligon cembung";
+
+  // gambar titik klik
+  ctx.fillStyle = inside ? "green" : "black";
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+  ctx.fill();
+});
+</script>
+
+</body>
+</html>

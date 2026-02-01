@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CPU Buffer SubData</title>
+</head>
+<body>
+<canvas id="canvas" width="400" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let x = 50;
+function draw() {
+  ctx.clearRect(0,0,400,400);
+  ctx.fillStyle = "blue";
+  ctx.fillRect(x, 180, 50, 50);
+  x += 1;
+  if (x > 400) x = 0;
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

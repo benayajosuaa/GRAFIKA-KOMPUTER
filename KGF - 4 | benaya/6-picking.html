@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WebGL Color Picking (Fixed)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    canvas {
+      border: 2px solid black;
+      background: white;
+    }
+
+    #info {
+      margin-top: 10px;
+    }
+
+    .color-box {
+      width: 40px;
+      height: 40px;
+      border: 1px solid black;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Click object to pick</h3>
+<canvas id="canvas" width="500" height="300"></canvas>
+
+<div id="info">
+  <div>Picked Object: <span id="picked">None</span></div>
+  <div>Color:</div>
+  <div id="colorBox" class="color-box"></div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const gl = canvas.getContext("webgl");
+const pickedText = document.getElementById("picked");
+const colorBox = document.getElementById("colorBox");
+
+// ================== SHADER ==================
+const vsSource = `
+  attribute vec2 aPos;
+  uniform vec2 uTranslate;
+  void main() {
+    gl_Position = vec4(aPos + uTranslate, 0.0, 1.0);
+  }
+`;
+
+const fsSource = `
+  precision mediump float;
+  uniform vec4 uColor;
+  void main() {
+    gl_FragColor = uColor;
+  }
+`;
+
+function createShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  return s;
+}
+
+const program = gl.createProgram();
+gl.attachShader(program, createShader(gl.VERTEX_SHADER, vsSource));
+gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fsSource));
+gl.linkProgram(program);
+gl.useProgram(program);
+
+// ================== GEOMETRY ==================
+const vertices = new Float32Array([
+  -0.2, -0.2,
+   0.2, -0.2,
+   0.2,  0.2,
+  -0.2,  0.2
+]);
+
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+const aPos = gl.getAttribLocation(program, "aPos");
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+gl.enableVertexAttribArray(aPos);
+
+const uTranslate = gl.getUniformLocation(program, "uTranslate");
+const uColor = gl.getUniformLocation(program, "uColor");
+
+// ================== OBJECT DATA ==================
+const objects = [
+  {
+    name: "Red Square",
+    pos: [-0.5, 0],
+    color: [1, 0, 0, 1],          // warna visual
+    pick:  [1/255, 0, 0, 1]       // ID picking
+  },
+  {
+    name: "Green Square",
+    pos: [0.5, 0],
+    color: [0, 1, 0, 1],
+    pick:  [0, 1/255, 0, 1]
+  }
+];
+
+// ================== DRAW ==================
+function draw(picking = false) {
+  gl.clearColor(1, 1, 1, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  objects.forEach(obj => {
+    gl.uniform2fv(uTranslate, obj.pos);
+    gl.uniform4fv(uColor, picking ? obj.pick : obj.color);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+  });
+}
+
+draw();
+
+// ================== PICKING ==================
+canvas.addEventListener("click", e => {
+  const x = e.offsetX;
+  const y = canvas.height - e.offsetY;
+
+  // render ke buffer picking
+  draw(true);
+
+  const pixel = new Uint8Array(4);
+  gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+  // render normal lagi
+  draw(false);
+
+  let found = null;
+
+  objects.forEach(obj => {
+    if (
+      pixel[0] === Math.round(obj.pick[0] * 255) &&
+      pixel[1] === Math.round(obj.pick[1] * 255)
+    ) {
+      found = obj;
+    }
+  });
+
+  if (found) {
+    pickedText.textContent = found.name;
+
+    const r = Math.round(found.color[0] * 255);
+    const g = Math.round(found.color[1] * 255);
+    const b = Math.round(found.color[2] * 255);
+
+    colorBox.style.background = `rgb(${r}, ${g}, ${b})`;
+  } else {
+    pickedText.textContent = "None";
+    colorBox.style.background = "#fff";
+  }
+});
+</script>
+
+</body>
+</html>
