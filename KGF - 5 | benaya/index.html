@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Transformasi Segitiga</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+    }
+    .controls {
+      margin: 10px;
+    }
+    button {
+      margin-right: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .wrapper {
+      position: relative;
+    }
+    canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <button onclick="setMode(1)">Soal 1: Cermin X</button>
+  <button onclick="setMode(2)">Soal 2: Rotasi 90°</button>
+  <button onclick="setMode(3)">Soal 3: Skala 2x</button>
+</div>
+
+<div class="wrapper">
+  <canvas id="glcanvas" width="600" height="600"></canvas>
+  <canvas id="overlay" width="600" height="600"></canvas>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
