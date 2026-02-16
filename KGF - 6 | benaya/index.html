@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Projection Demo</title>
+<style>
+body{background:#111;color:white;text-align:center;}
+canvas{border:1px solid #555;}
+button{margin:5px;padding:8px;}
+</style>
+</head>
+
+<body>
+
+<h2>WebGL Projection Demo</h2>
+
+<button onclick="mode=0">Isometric</button>
+<button onclick="mode=1">Dimetric</button>
+<button onclick="mode=2">1-Point</button>
+<button onclick="mode=3">2-Point</button>
+
+<br><br>
+<canvas id="glcanvas" width="800" height="500"></canvas>
+
+<script src="script.js"></script>
+</body>
+</html>
