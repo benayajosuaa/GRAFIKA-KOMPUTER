@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Mesh Triangle — Color</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Inter:wght@300;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'IBM Plex Mono',monospace;min-height:100vh;padding:40px 20px}
+  h1{font-family:'Inter',sans-serif;font-size:2rem;font-weight:800;color:#fff;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#555;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:40px}
+  .layout{display:grid;grid-template-columns:1fr 360px;gap:24px;max-width:1100px;margin:0 auto}
+  .card{background:#1a1824;border:1px solid #2a2840;border-radius:12px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#a78bfa;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #2a2840;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:1px solid #2a2840;border-radius:8px;cursor:crosshair;width:100%}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .ctrl-row label{font-size:.7rem;color:#888;width:90px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#2a2840;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#a78bfa;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:36px;text-align:right;font-size:.8rem;color:#a78bfa}
+  .btn{width:100%;padding:10px;border:1px solid #3a3858;border-radius:6px;background:transparent;font-family:inherit;font-size:.75rem;letter-spacing:2px;cursor:pointer;margin-bottom:8px;transition:all .2s;text-transform:uppercase;color:#888}
+  .btn:hover,.btn.on{background:#a78bfa;color:#fff;border-color:#a78bfa}
+  .color-pickers{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+  .cp{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .cp label{font-size:.65rem;color:#888;letter-spacing:1px}
+  input[type=color]{width:44px;height:44px;border:2px solid #3a3858;border-radius:50%;cursor:pointer;padding:2px;background:transparent}
+  .info{font-size:.75rem;line-height:2;color:#666;margin-top:16px}
+  .info strong{color:#a78bfa}
+  .mode-btns{display:flex;gap:6px;margin-bottom:12px}
+  .mode-btn{flex:1;padding:8px;border:1px solid #3a3858;border-radius:4px;background:transparent;font-family:inherit;font-size:.7rem;letter-spacing:1px;cursor:pointer;color:#888;transition:all .2s}
+  .mode-btn.active{background:#a78bfa;color:#fff;border-color:#a78bfa}
+</style>
+</head>
+<body>
+<h1>2D Mesh — Triangle Color</h1>
+<p class="subtitle">Week 07 — Vertex Colors & Interpolation</p>
+<div class="layout">
+  <div class="card">
+    <h2>Colored Triangle Mesh</h2>
+    <canvas id="cv" height="440"></canvas>
+  </div>
+  <div class="card">
+    <h2>Vertex Colors</h2>
+    <div class="color-pickers">
+      <div class="cp"><label>V1 TOP</label><input type="color" id="c0" value="#ff4136"></div>
+      <div class="cp"><label>V2 LEFT</label><input type="color" id="c1" value="#2ecc40"></div>
+      <div class="cp"><label>V3 RIGHT</label><input type="color" id="c2" value="#0074d9"></div>
+    </div>
+    <h2>Render Mode</h2>
+    <div class="mode-btns">
+      <button class="mode-btn active" id="m-gradient" onclick="setMode('gradient')">GRADIENT</button>
+      <button class="mode-btn" id="m-flat" onclick="setMode('flat')">FLAT</button>
+      <button class="mode-btn" id="m-wireframe" onclick="setMode('wireframe')">WIRE</button>
+    </div>
+    <h2>Mesh Settings</h2>
+    <div class="ctrl-row"><label>SUBDIVIDE</label><input type="range" id="sub" min="0" max="5" value="0" step="1"><div class="ctrl-val" id="subv">0</div></div>
+    <div class="ctrl-row"><label>OPACITY</label><input type="range" id="opa" min="0.1" max="1" value="1" step="0.05"><div class="ctrl-val" id="opav">1</div></div>
+    <div class="ctrl-row"><label>LINE W</label><input type="range" id="lw" min="0.5" max="4" value="1" step="0.5"><div class="ctrl-val" id="lwv">1</div></div>
+    <button class="btn" onclick="reset()">RESET</button>
+    <button class="btn" id="animBtn" onclick="toggleAnim()">ANIMATE COLORS</button>
+    <div class="info">
+      <strong>Barycentric Interpolation</strong><br>
+      Each pixel blends RGB from 3 vertices<br>
+      using barycentric coordinates (λ₁,λ₂,λ₃).<br>
+      λ₁+λ₂+λ₃ = 1<br>
+      Color = λ₁·C₁ + λ₂·C₂ + λ₃·C₃
+    </div>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let mode='gradient',animating=false,animT=0;
+let verts=[];
+
+function reset(){
+  const W=cv.offsetWidth,H=440;
+  verts=[[W/2,70],[W*0.15,H-60],[W*0.85,H-60]];
+  draw();
+}
+
+function hexToRgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b];}
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function lerpColor(c1,c2,t){return[lerp(c1[0],c2[0],t),lerp(c1[1],c2[1],t),lerp(c1[2],c2[2],t)];}
+function barycentric(p,a,b,c){
+  const v0=[c[0]-a[0],c[1]-a[1]],v1=[b[0]-a[0],b[1]-a[1]],v2=[p[0]-a[0],p[1]-a[1]];
+  const d00=v0[0]*v0[0]+v0[1]*v0[1],d01=v0[0]*v1[0]+v0[1]*v1[1],d11=v1[0]*v1[0]+v1[1]*v1[1];
+  const d20=v2[0]*v0[0]+v2[1]*v0[1],d21=v2[0]*v1[0]+v2[1]*v1[1];
+  const denom=d00*d11-d01*d01;
+  const v=denom===0?0:(d11*d20-d01*d21)/denom;
+  const w=denom===0?0:(d00*d21-d01*d20)/denom;
+  const u=1-v-w;
+  return[u,w,v];
+}
+
+function drawGradientTriangle(v0,v1,v2,c0,c1,c2){
+  const minX=Math.floor(Math.min(v0[0],v1[0],v2[0]));
+  const maxX=Math.ceil(Math.max(v0[0],v1[0],v2[0]));
+  const minY=Math.floor(Math.min(v0[1],v1[1],v2[1]));
+  const maxY=Math.ceil(Math.max(v0[1],v1[1],v2[1]));
+  const imgData=ctx.createImageData(maxX-minX,maxY-minY);
+  for(let y=minY;y<maxY;y++){for(let x=minX;x<maxX;x++){
+    const [u,v,w]=barycentric([x,y],v0,v1,v2);
+    if(u>=0&&v>=0&&w>=0){
+      const r=u*c0[0]+v*c1[0]+w*c2[0];
+      const g=u*c0[1]+v*c1[1]+w*c2[1];
+      const b=u*c0[2]+v*c1[2]+w*c2[2];
+      const idx=((y-minY)*(maxX-minX)+(x-minX))*4;
+      imgData.data[idx]=r;imgData.data[idx+1]=g;imgData.data[idx+2]=b;imgData.data[idx+3]=255;
+    }
+  }}
+  ctx.putImageData(imgData,minX,minY);
+}
+
+function getMidpoint(a,b){return[(a[0]+b[0])/2,(a[1]+b[1])/2];}
+function getMidColor(a,b){return[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];}
+
+function subdivide(triangles,level){
+  if(level===0)return triangles;
+  const next=[];
+  triangles.forEach(([v0,v1,v2,c0,c1,c2])=>{
+    const m01=getMidpoint(v0,v1),m12=getMidpoint(v1,v2),m20=getMidpoint(v2,v0);
+    const cm01=getMidColor(c0,c1),cm12=getMidColor(c1,c2),cm20=getMidColor(c2,c0);
+    next.push([v0,m01,m20,c0,cm01,cm20],[m01,v1,m12,cm01,c1,cm12],[m20,m12,v2,cm20,cm12,c2],[m01,m12,m20,cm01,cm12,cm20]);
+  });
+  return subdivide(next,level-1);
+}
+
+function getColors(){
+  if(animating){
+    const t=animT;
+    return[[Math.sin(t)*127+128,Math.cos(t*0.7)*127+128,50],[50,Math.sin(t*1.3)*127+128,Math.cos(t)*127+128],[Math.cos(t*0.5)*127+128,50,Math.sin(t*1.7)*127+128]];
+  }
+  return[hexToRgb(document.getElementById('c0').value),hexToRgb(document.getElementById('c1').value),hexToRgb(document.getElementById('c2').value)];
+}
+
+function draw(){
+  const W=cv.offsetWidth;cv.width=W;cv.height=440;
+  ctx.clearRect(0,0,W,440);
+  if(verts.length<3)return;
+  const [c0,c1,c2]=getColors();
+  const opa=parseFloat(document.getElementById('opa').value);
+  const level=parseInt(document.getElementById('sub').value);
+  const lw=parseFloat(document.getElementById('lw').value);
+  const triangles=subdivide([[verts[0],verts[1],verts[2],c0,c1,c2]],level);
+
+  ctx.globalAlpha=opa;
+  if(mode==='gradient'||mode==='flat'){
+    triangles.forEach(([v0,v1,v2,tc0,tc1,tc2])=>{
+      if(mode==='gradient'){
+        drawGradientTriangle(v0,v1,v2,tc0,tc1,tc2);
+      } else {
+        const fc=[(tc0[0]+tc1[0]+tc2[0])/3,(tc0[1]+tc1[1]+tc2[1])/3,(tc0[2]+tc1[2]+tc2[2])/3];
+        ctx.fillStyle=`rgb(${fc[0]|0},${fc[1]|0},${fc[2]|0})`;
+        ctx.beginPath();ctx.moveTo(v0[0],v0[1]);ctx.lineTo(v1[0],v1[1]);ctx.lineTo(v2[0],v2[1]);ctx.closePath();ctx.fill();
+      }
+    });
+  }
+  ctx.globalAlpha=1;
+  if(mode==='wireframe'||mode==='gradient'){
+    ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=lw;
+    triangles.forEach(([v0,v1,v2])=>{ctx.beginPath();ctx.moveTo(v0[0],v0[1]);ctx.lineTo(v1[0],v1[1]);ctx.lineTo(v2[0],v2[1]);ctx.closePath();ctx.stroke();});
+  }
+  // vertex points
+  [verts[0],verts[1],verts[2]].forEach((v,i)=>{
+    const c=[c0,c1,c2][i];
+    ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(v[0],v[1],8,0,Math.PI*2);ctx.fill();ctx.stroke();
+  });
+}
+
+function setMode(m){
+  mode=m;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('m-'+m).classList.add('active');draw();
+}
+
+function toggleAnim(){
+  animating=!animating;document.getElementById('animBtn').classList.toggle('on',animating);
+  if(animating)requestAnimationFrame(anim);
+}
+function anim(){if(!animating)return;animT+=0.03;draw();requestAnimationFrame(anim);}
+
+['c0','c1','c2'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+['sub','opa','lw'].forEach(id=>document.getElementById(id).addEventListener('input',e=>{document.getElementById(id+'v').textContent=e.target.value;draw();}));
+cv.addEventListener('click',e=>{
+  if(verts.length>=3)return;
+  const rect=cv.getBoundingClientRect();
+  verts.push([e.clientX-rect.left,e.clientY-rect.top]);
+  if(verts.length===3)draw();
+});
+
+window.addEventListener('resize',()=>{const v=verts.slice();reset();verts=v;draw();});
+reset();
+</script>
+</body>
+</html>

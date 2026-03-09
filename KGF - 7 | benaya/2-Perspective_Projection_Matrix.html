@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Perspective Projection Matrix</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px}
+  h1{font-family:'Orbitron',monospace;font-size:1.8rem;color:#f59e0b;margin-bottom:8px;letter-spacing:2px}
+  .subtitle{color:#555;font-size:.8rem;margin-bottom:40px;letter-spacing:4px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;width:100%}
+  .card{background:#0f0f18;border:1px solid #2a2a1a;border-radius:12px;padding:28px}
+  .card h2{font-size:.75rem;letter-spacing:3px;text-transform:uppercase;color:#f59e0b;margin-bottom:20px;border-bottom:1px solid #2a2a1a;padding-bottom:12px}
+  canvas{display:block;margin:0 auto;border:1px solid #2a2a1a;border-radius:8px;background:#fff}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+  .ctrl{display:flex;flex-direction:column;gap:6px;flex:1;min-width:120px}
+  label{font-size:.7rem;color:#888;letter-spacing:1px}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:#2a2a1a;border-radius:2px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#f59e0b;cursor:pointer}
+  .val{color:#f59e0b;font-size:.8rem;text-align:center}
+  .matrix-display{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+  .matrix-display span{background:#1a1a0d;border:1px solid #3a3a1a;border-radius:4px;padding:8px 4px;text-align:center;font-size:.75rem;color:#f59e0b;font-family:monospace}
+  .info{background:#1a1500;border:1px solid #3a3000;border-radius:8px;padding:16px;margin-top:16px;font-size:.8rem;line-height:2;color:#aaa}
+  .info strong{color:#f59e0b}
+  .full{grid-column:1/-1}
+  .formula{background:#0a0e0a;border:1px solid #1a3a1a;border-radius:8px;padding:16px;margin-top:12px;font-size:.78rem;color:#4ade80;line-height:2;font-family:monospace}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .cbox{background:#0f0f18;border:1px solid #2a2a1a;border-radius:8px;padding:16px;text-align:center}
+  .cbox h3{font-size:.7rem;letter-spacing:2px;color:#888;margin-bottom:8px}
+  canvas.small{width:200px;height:150px}
+</style>
+</head>
+<body>
+<h1>Perspective Projection Matrix</h1>
+<p class="subtitle">Week 07 — 3D Computer Graphics</p>
+<div class="grid">
+  <div class="card">
+    <h2>Interactive 3D Scene</h2>
+    <canvas id="c3d" width="460" height="300"></canvas>
+    <div class="controls">
+      <div class="ctrl"><label>ROTATE Y</label><input type="range" id="ry" min="-180" max="180" value="25"><div class="val" id="ryv">25°</div></div>
+      <div class="ctrl"><label>ROTATE X</label><input type="range" id="rx" min="-60" max="60" value="15"><div class="val" id="rxv">15°</div></div>
+      <div class="ctrl"><label>FOV</label><input type="range" id="fov" min="20" max="120" value="60"><div class="val" id="fovv">60°</div></div>
+      <div class="ctrl"><label>NEAR</label><input type="range" id="near" min="1" max="50" value="5"><div class="val" id="nearv">5</div></div>
+      <div class="ctrl"><label>FAR</label><input type="range" id="far" min="50" max="500" value="100"><div class="val" id="farv">100</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Perspective Result</h2>
+    <canvas id="c2d" width="460" height="300"></canvas>
+    <div class="info">
+      <strong>Perspective Projection</strong> simulates depth.<br>
+      Objects farther away appear <strong>smaller</strong>.<br>
+      Parallel lines converge to a <strong>vanishing point</strong>.
+    </div>
+  </div>
+  <div class="card full">
+    <h2>Perspective Projection Matrix (4×4)</h2>
+    <div class="matrix-display" id="mat"></div>
+    <div class="formula">
+      f = 1 / tan(fov/2)   |   n = near,  fa = far<br><br>
+      P = [<br>
+      &nbsp; [f/aspect,  0,         0,              0   ],<br>
+      &nbsp; [0,         f,         0,              0   ],<br>
+      &nbsp; [0,         0,  (fa+n)/(n-fa),  (2*fa*n)/(n-fa)],<br>
+      &nbsp; [0,         0,        -1,              0   ]<br>
+      ]<br><br>
+      Homogeneous divide: x' = x/w, y' = y/w, z' = z/w
+    </div>
+  </div>
+</div>
+<script>
+const cube=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+const edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+
+function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[[1,0,0],[0,c,-s],[0,s,c]];}
+function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[[c,0,s],[0,1,0],[-s,0,c]];}
+function mulMat(a,b){const r=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)r[i][j]+=a[i][k]*b[k][j];return r;}
+function applyR(m,v){return[m[0][0]*v[0]+m[0][1]*v[1]+m[0][2]*v[2],m[1][0]*v[0]+m[1][1]*v[1]+m[1][2]*v[2],m[2][0]*v[0]+m[2][1]*v[1]+m[2][2]*v[2]];}
+
+function perspective(v,fov,near,far,aspect){
+  const f=1/Math.tan(fov*Math.PI/360);
+  const[x,y,z]=v;
+  const nz=-(z+5);
+  if(nz<=0)return null;
+  const px=(x*f/aspect)/nz;
+  const py=(y*f)/nz;
+  return[px,py,nz];
+}
+
+function buildMat(fov,near,far,aspect){
+  const f=1/Math.tan(fov*Math.PI/360);
+  const n=near,fa=far;
+  return[
+    [f/aspect,0,0,0],
+    [0,f,0,0],
+    [0,0,(fa+n)/(n-fa),(2*fa*n)/(n-fa)],
+    [0,0,-1,0]
+  ];
+}
+
+function draw(){
+  const rx=parseFloat(document.getElementById('rx').value)*Math.PI/180;
+  const ry=parseFloat(document.getElementById('ry').value)*Math.PI/180;
+  const fov=parseFloat(document.getElementById('fov').value);
+  const near=parseFloat(document.getElementById('near').value);
+  const far=parseFloat(document.getElementById('far').value);
+  const R=mulMat(rotX(rx),rotY(ry));
+  const verts=cube.map(v=>applyR(R,v));
+
+  // 3D isometric view
+  const c3=document.getElementById('c3d'),ctx3=c3.getContext('2d');
+  const W=c3.width,H=c3.height,cx=W/2,cy=H/2,sc=70;
+  ctx3.clearRect(0,0,W,H);
+  function iso(v){return[cx+v[0]*sc-v[2]*sc*0.4,cy-v[1]*sc+v[2]*sc*0.3];}
+  ctx3.strokeStyle='#333';ctx3.lineWidth=1;
+  for(let i=-4;i<=4;i++){ctx3.beginPath();ctx3.moveTo(cx+i*sc*0.5,cy-160);ctx3.lineTo(cx+i*sc*0.5+160,cy+80);ctx3.stroke();}
+  ctx3.strokeStyle='#f59e0b';ctx3.lineWidth=1.5;
+  edges.forEach(([a,b])=>{const pa=iso(verts[a]),pb=iso(verts[b]);ctx3.beginPath();ctx3.moveTo(pa[0],pa[1]);ctx3.lineTo(pb[0],pb[1]);ctx3.stroke();});
+  verts.forEach(v=>{const p=iso(v);ctx3.fillStyle='#f59e0b';ctx3.beginPath();ctx3.arc(p[0],p[1],3,0,Math.PI*2);ctx3.fill();});
+  ctx3.fillStyle='#f59e0b66';ctx3.font='11px Orbitron';
+  ctx3.fillText('3D Scene (Isometric)',10,20);
+
+  // perspective projection
+  const c2=document.getElementById('c2d'),ctx2=c2.getContext('2d');
+  const W2=c2.width,H2=c2.height,cx2=W2/2,cy2=H2/2,sc2=200;
+  ctx2.clearRect(0,0,W2,H2);
+  const aspect=W2/H2;
+  const projected=verts.map(v=>perspective(v,fov,near,far,aspect));
+  ctx2.strokeStyle='#f59e0b';ctx2.lineWidth=2;
+  edges.forEach(([a,b])=>{
+    const pa=projected[a],pb=projected[b];
+    if(!pa||!pb)return;
+    ctx2.beginPath();ctx2.moveTo(cx2+pa[0]*sc2,cy2-pa[1]*sc2);ctx2.lineTo(cx2+pb[0]*sc2,cy2-pb[1]*sc2);ctx2.stroke();
+  });
+  projected.forEach(p=>{
+    if(!p)return;
+    ctx2.fillStyle='#f59e0b';ctx2.beginPath();ctx2.arc(cx2+p[0]*sc2,cy2-p[1]*sc2,4,0,Math.PI*2);ctx2.fill();
+  });
+  ctx2.fillStyle='#f59e0b66';ctx2.font='11px Orbitron';
+  ctx2.fillText(`FOV: ${fov}° | Near: ${near} | Far: ${far}`,10,20);
+
+  // update matrix display
+  const P=buildMat(fov,near,far,1.53);
+  const md=document.getElementById('mat');md.innerHTML='';
+  P.forEach(row=>row.forEach(v=>{const s=document.createElement('span');s.textContent=v===0?'0':v===1?'1':v===-1?'-1':v.toFixed(3);md.appendChild(s);}));
+}
+
+['rx','ry','fov','near','far'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>{
+    const s=id==='rx'||id==='ry'?'°':'';
+    document.getElementById(id+'v').textContent=el.value+s;
+    draw();
+  });
+});
+draw();
+setInterval(()=>{
+  const r=document.getElementById('ry');
+  r.value=(parseFloat(r.value)+0.4)%360;
+  document.getElementById('ryv').textContent=Math.round(parseFloat(r.value))+'°';
+  draw();
+},50);
+</script>
+</body>
+</html>

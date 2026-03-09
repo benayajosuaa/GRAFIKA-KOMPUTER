@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phong Shading Model</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;700&family=Roboto+Mono:wght@400;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Roboto Mono',monospace;min-height:100vh;padding:40px 20px}
+  h1{font-family:'Exo 2',sans-serif;font-weight:700;font-size:2rem;color:#fbbf24;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#4a3a10;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:32px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;margin:0 auto}
+  .card{background:#120e04;border:1px solid #2a2010;border-radius:12px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#fbbf24;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #2a2010;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:1px solid #2a2010;border-radius:8px;width:100%}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .ctrl-row label{font-size:.7rem;color:#6a5020;width:110px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#2a2010;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#fbbf24;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:46px;text-align:right;font-size:.78rem;color:#fbbf24}
+  .formula-box{background:#0a0800;border:1px solid #3a3010;border-radius:8px;padding:16px;font-size:.78rem;color:#d4a830;line-height:2;margin-top:12px}
+  .formula-box strong{color:#fbbf24}
+  .full{grid-column:1/-1}
+  .components{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+  .comp{background:#0a0800;border:1px solid #3a3010;border-radius:8px;padding:14px;text-align:center}
+  .comp h3{font-size:.7rem;letter-spacing:2px;color:#fbbf24;margin-bottom:8px}
+  .comp canvas{width:100%;height:120px;margin:0}
+  .comp p{font-size:.65rem;color:#7a6030;margin-top:6px;line-height:1.6}
+  input[type=color]{width:36px;height:36px;border:1px solid #3a3010;border-radius:4px;cursor:pointer;background:transparent;padding:2px}
+</style>
+</head>
+<body>
+<h1>Phong Shading Model</h1>
+<p class="subtitle">Week 07 — Lighting & Reflection</p>
+<div class="grid">
+  <div class="card">
+    <h2>Phong Shaded Sphere</h2>
+    <canvas id="cvSphere" height="340"></canvas>
+    <div class="ctrl-row"><label>LIGHT X</label><input type="range" id="lx" min="-3" max="3" value="1.5" step="0.1"><div class="ctrl-val" id="lxv">1.5</div></div>
+    <div class="ctrl-row"><label>LIGHT Y</label><input type="range" id="ly" min="-3" max="3" value="2" step="0.1"><div class="ctrl-val" id="lyv">2</div></div>
+    <div class="ctrl-row"><label>AMBIENT Ka</label><input type="range" id="ka" min="0" max="1" value="0.15" step="0.01"><div class="ctrl-val" id="kav">0.15</div></div>
+    <div class="ctrl-row"><label>DIFFUSE Kd</label><input type="range" id="kd" min="0" max="1" value="0.7" step="0.01"><div class="ctrl-val" id="kdv">0.7</div></div>
+    <div class="ctrl-row"><label>SPECULAR Ks</label><input type="range" id="ks" min="0" max="1" value="0.6" step="0.01"><div class="ctrl-val" id="ksv">0.6</div></div>
+    <div class="ctrl-row"><label>SHININESS α</label><input type="range" id="sh" min="1" max="200" value="50"><div class="ctrl-val" id="shv">50</div></div>
+    <div class="ctrl-row"><label>OBJECT COLOR</label><input type="color" id="objColor" value="#c87820"></div>
+    <div class="ctrl-row"><label>LIGHT COLOR</label><input type="color" id="lightColor" value="#ffffff"></div>
+  </div>
+  <div class="card">
+    <h2>Phong Components Breakdown</h2>
+    <div class="components">
+      <div class="comp"><h3>AMBIENT</h3><canvas id="cvAmb" height="120"></canvas><p>Ia = Ka × Ia_light<br>Constant base light</p></div>
+      <div class="comp"><h3>DIFFUSE</h3><canvas id="cvDiff" height="120"></canvas><p>Id = Kd × (N·L)<br>Lambert shading</p></div>
+      <div class="comp"><h3>SPECULAR</h3><canvas id="cvSpec" height="120"></canvas><p>Is = Ks × (R·V)^α<br>Shiny highlight</p></div>
+    </div>
+    <div class="formula-box">
+      <strong>Phong Illumination Model:</strong><br>
+      I = Ka·Ia + Kd·(N·L)·Id + Ks·(R·V)^α·Is<br><br>
+      N = surface normal (normalized)<br>
+      L = direction to light (normalized)<br>
+      V = direction to viewer (normalized)<br>
+      R = 2(N·L)N - L (reflection vector)<br>
+      α = shininess exponent<br><br>
+      <strong>Ka</strong>=ambient  <strong>Kd</strong>=diffuse  <strong>Ks</strong>=specular
+    </div>
+  </div>
+</div>
+<script>
+function hexToRgb(h){return[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];}
+function dot3(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function norm3(a){const l=Math.sqrt(dot3(a,a));return l?[a[0]/l,a[1]/l,a[2]/l]:[0,0,0];}
+function scale3(a,t){return[a[0]*t,a[1]*t,a[2]*t];}
+function add3(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function sub3(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+
+function phong(N,L,V,objColor,lightColor,ka,kd,ks,sh){
+  const NdotL=Math.max(0,dot3(N,L));
+  const R=norm3(sub3(scale3(N,2*dot3(N,L)),L));
+  const RdotV=Math.max(0,dot3(R,V));
+  const spec=Math.pow(RdotV,sh);
+  return[
+    Math.min(1,(ka*objColor[0]+kd*NdotL*lightColor[0]*objColor[0]+ks*spec*lightColor[0])),
+    Math.min(1,(ka*objColor[1]+kd*NdotL*lightColor[1]*objColor[1]+ks*spec*lightColor[1])),
+    Math.min(1,(ka*objColor[2]+kd*NdotL*lightColor[2]*objColor[2]+ks*spec*lightColor[2]))
+  ];
+}
+
+function drawSphere(canvasId,ka,kd,ks,sh,objColor,lightColor,light,ambOnly=false,diffOnly=false,specOnly=false){
+  const cv=document.getElementById(canvasId);
+  const W=cv.offsetWidth||cv.width;const H=cv.height;
+  cv.width=W;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0a0800';ctx.fillRect(0,0,W,H);
+  const R=Math.min(W,H)/2-20;const cx=W/2,cy=H/2;
+  const img=ctx.createImageData(W,H);
+  const V=[0,0,1];
+  for(let py=0;py<H;py++){for(let px=0;px<W;px++){
+    const x=(px-cx)/R,y=(cy-py)/R;
+    if(x*x+y*y>1)continue;
+    const z=Math.sqrt(1-x*x-y*y);
+    const N=[x,y,z];
+    const L=norm3(light);
+    let color;
+    if(ambOnly){const a=ka;color=[objColor[0]*a,objColor[1]*a,objColor[2]*a];}
+    else if(diffOnly){const NdotL=Math.max(0,dot3(N,L));color=[objColor[0]*kd*NdotL,objColor[1]*kd*NdotL,objColor[2]*kd*NdotL];}
+    else if(specOnly){const NdotL=Math.max(0,dot3(N,L));const Rv=norm3(sub3(scale3(N,2*NdotL),L));const s=Math.pow(Math.max(0,dot3(Rv,V)),sh)*ks;color=[s,s,s];}
+    else color=phong(N,L,V,objColor,lightColor,ka,kd,ks,sh);
+    const idx=(py*W+px)*4;
+    img.data[idx]=color[0]*255;img.data[idx+1]=color[1]*255;img.data[idx+2]=color[2]*255;img.data[idx+3]=255;
+  }}
+  ctx.putImageData(img,0,0);
+  // outline
+  ctx.strokeStyle='#3a3010';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  // light indicator
+  if(!ambOnly&&!diffOnly&&!specOnly){
+    const sc=R*0.8;
+    const lp=[cx+light[0]*sc,cy-light[1]*sc];
+    ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(lp[0],lp[1],6,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(251,191,36,0.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(lp[0],lp[1]);ctx.lineTo(cx,cy);ctx.stroke();ctx.setLineDash([]);
+  }
+}
+
+function getParams(){
+  return{
+    ka:parseFloat(document.getElementById('ka').value),
+    kd:parseFloat(document.getElementById('kd').value),
+    ks:parseFloat(document.getElementById('ks').value),
+    sh:parseFloat(document.getElementById('sh').value),
+    objColor:hexToRgb(document.getElementById('objColor').value),
+    lightColor:hexToRgb(document.getElementById('lightColor').value),
+    light:norm3([parseFloat(document.getElementById('lx').value),parseFloat(document.getElementById('ly').value),2])
+  };
+}
+
+function draw(){
+  const {ka,kd,ks,sh,objColor,lightColor,light}=getParams();
+  drawSphere('cvSphere',ka,kd,ks,sh,objColor,lightColor,light);
+  drawSphere('cvAmb',ka,0,0,sh,objColor,lightColor,light,true);
+  drawSphere('cvDiff',0,kd,0,sh,objColor,lightColor,light,false,true);
+  drawSphere('cvSpec',0,0,ks,sh,objColor,lightColor,light,false,false,true);
+}
+
+['lx','ly','ka','kd','ks','sh'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',()=>{document.getElementById(id+'v').textContent=el.value;draw();});});
+['objColor','lightColor'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+window.addEventListener('resize',draw);
+draw();
+</script>
+</body>
+</html>

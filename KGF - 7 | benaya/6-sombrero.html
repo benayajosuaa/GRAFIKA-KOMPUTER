@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sombrero Function</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Courier Prime',monospace;min-height:100vh;padding:40px 20px;display:flex;flex-direction:column;align-items:center}
+  h1{font-family:'Playfair Display',serif;font-size:2.2rem;color:#e879f9;margin-bottom:6px;text-align:center}
+  .subtitle{text-align:center;color:#666;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:32px}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:24px;max-width:1100px;width:100%}
+  .card{background:#120820;border:1px solid #2d1a4a;border-radius:12px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#e879f9;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #2d1a4a;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:1px solid #2d1a4a;border-radius:8px}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .ctrl-row label{font-size:.7rem;color:#888;width:90px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#2d1a4a;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#e879f9;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:46px;text-align:right;font-size:.78rem;color:#e879f9}
+  select{width:100%;background:#120820;color:#e879f9;border:1px solid #2d1a4a;padding:8px;border-radius:6px;font-family:inherit;font-size:.8rem;margin-bottom:12px}
+  .formula-box{background:#0a0514;border:1px solid #2d1a4a;border-radius:8px;padding:16px;font-size:.8rem;color:#c4b5fd;line-height:2;margin-top:12px}
+  .formula-box strong{color:#e879f9}
+  .btn{width:100%;padding:10px;border:1px solid #2d1a4a;border-radius:6px;background:transparent;font-family:inherit;font-size:.75rem;letter-spacing:2px;cursor:pointer;margin-bottom:8px;transition:all .2s;color:#888}
+  .btn:hover,.btn.on{background:#e879f9;color:#fff;border-color:#e879f9}
+</style>
+</head>
+<body>
+<h1>Sombrero Function</h1>
+<p class="subtitle">Week 07 — 3D Mesh Visualization</p>
+<div class="grid">
+  <div class="card">
+    <h2>3D Plot</h2>
+    <canvas id="cv" width="720" height="480"></canvas>
+  </div>
+  <div class="card">
+    <h2>Parameters</h2>
+    <div class="ctrl-row"><label>ROTATE X</label><input type="range" id="rx" min="0" max="90" value="40"><div class="ctrl-val" id="rxv">40°</div></div>
+    <div class="ctrl-row"><label>ROTATE Y</label><input type="range" id="ry" min="-180" max="180" value="30"><div class="ctrl-val" id="ryv">30°</div></div>
+    <div class="ctrl-row"><label>SCALE Z</label><input type="range" id="sz" min="0.5" max="3" value="1.2" step="0.1"><div class="ctrl-val" id="szv">1.2</div></div>
+    <div class="ctrl-row"><label>GRID RES</label><input type="range" id="gr" min="10" max="60" value="30" step="5"><div class="ctrl-val" id="grv">30</div></div>
+    <div class="ctrl-row"><label>AMPLITUDE</label><input type="range" id="amp" min="0.5" max="3" value="1.5" step="0.1"><div class="ctrl-val" id="ampv">1.5</div></div>
+    <h2 style="margin-top:16px">Color Mode</h2>
+    <select id="cmode">
+      <option value="rainbow">Rainbow (Height)</option>
+      <option value="cool">Cool Blue</option>
+      <option value="heat">Heat Map</option>
+      <option value="mono">Monochrome</option>
+    </select>
+    <button class="btn" id="animBtn" onclick="toggleAnim()">▶ AUTO ROTATE</button>
+    <button class="btn" onclick="resetView()">RESET VIEW</button>
+    <div class="formula-box">
+      <strong>Sombrero / Sinc Function:</strong><br>
+      f(x,y) = sin(r) / r<br><br>
+      r = √(x² + y²)<br><br>
+      Also known as the 2D sinc function.<br>
+      Named for its resemblance to a Mexican sombrero hat.
+    </div>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let autoAnim=false,animRy=30;
+
+function sinc(x,y,amp){const r=Math.sqrt(x*x+y*y);return r===0?amp:amp*Math.sin(r*Math.PI)/(r*Math.PI);}
+
+function hsvToRgb(h,s,v){let r,g,b;const i=Math.floor(h*6);const f=h*6-i;const p=v*(1-s);const q=v*(1-f*s);const t=v*(1-(1-f)*s);switch(i%6){case 0:r=v,g=t,b=p;break;case 1:r=q,g=v,b=p;break;case 2:r=p,g=v,b=t;break;case 3:r=p,g=q,b=v;break;case 4:r=t,g=p,b=v;break;case 5:r=v,g=p,b=q;break;}return[r*255,g*255,b*255];}
+
+function getColor(t,mode){
+  const tt=(t+1)/2;
+  if(mode==='rainbow'){const [r,g,b]=hsvToRgb(tt*0.8,0.9,0.9);return`rgb(${r|0},${g|0},${b|0})`;}
+  if(mode==='cool'){return`rgb(${(tt*80)|0},${(tt*200)|0},${(200+tt*55)|0})`;}
+  if(mode==='heat'){return`rgb(${(255*tt)|0},${(tt*(1-tt)*4*255)|0},${(255*(1-tt))|0})`;}
+  return`rgb(${(200*tt+30)|0},${(200*tt+30)|0},${(200*tt+30)|0})`;
+}
+
+function project(x,y,z,rx,ry,W,H){
+  const cosX=Math.cos(rx),sinX=Math.sin(rx);
+  const cosY=Math.cos(ry),sinY=Math.sin(ry);
+  const x2=x*cosY+z*sinY;
+  const z2=-x*sinY+z*cosY;
+  const y2=y*cosX-z2*sinX;
+  const z3=y*sinX+z2*cosX;
+  const sc=Math.min(W,H)*0.35;
+  const fov=3;
+  return[W/2+x2*sc/(z3+fov),H/2-y2*sc/(z3+fov)];
+}
+
+function draw(){
+  const W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const rx=parseFloat(document.getElementById('rx').value)*Math.PI/180;
+  const ry=parseFloat(document.getElementById('ry').value)*Math.PI/180;
+  const sz=parseFloat(document.getElementById('sz').value);
+  const gr=parseInt(document.getElementById('gr').value);
+  const amp=parseFloat(document.getElementById('amp').value);
+  const cmode=document.getElementById('cmode').value;
+  const R=6,step=R*2/gr;
+  const grid=[];
+  let minZ=Infinity,maxZ=-Infinity;
+  for(let i=0;i<=gr;i++){for(let j=0;j<=gr;j++){
+    const x=-R+i*step,y=-R+j*step;
+    const z=sinc(x,y,amp)*sz;
+    minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);
+    grid.push({x:x/R,y:y/R,z});
+  }}
+  // draw quads back to front
+  const quads=[];
+  for(let i=0;i<gr;i++){for(let j=0;j<gr;j++){
+    const idx=(r,c)=>r*(gr+1)+c;
+    const a=grid[idx(i,j)],b=grid[idx(i+1,j)],c2=grid[idx(i+1,j+1)],d=grid[idx(i,j+1)];
+    const avgZ=(a.z+b.z+c2.z+d.z)/4;
+    quads.push({a,b,c:c2,d,avgZ});
+  }}
+  quads.sort((a,b)=>b.avgZ-a.avgZ);
+  quads.forEach(({a,b,c,d,avgZ})=>{
+    const t=(avgZ-minZ)/(maxZ-minZ)*2-1;
+    const pa=project(a.x,a.y,a.z,rx,ry,W,H);
+    const pb=project(b.x,b.y,b.z,rx,ry,W,H);
+    const pc=project(c.x,c.y,c.z,rx,ry,W,H);
+    const pd=project(d.x,d.y,d.z,rx,ry,W,H);
+    ctx.fillStyle=getColor(t,cmode);
+    ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.lineTo(pc[0],pc[1]);ctx.lineTo(pd[0],pd[1]);ctx.closePath();
+    ctx.fill();ctx.stroke();
+  });
+}
+
+function toggleAnim(){
+  autoAnim=!autoAnim;document.getElementById('animBtn').classList.toggle('on',autoAnim);
+  if(autoAnim)anim();
+}
+function anim(){if(!autoAnim)return;animRy+=0.5;const r=document.getElementById('ry');r.value=animRy%360;document.getElementById('ryv').textContent=Math.round(animRy%360)+'°';draw();requestAnimationFrame(anim);}
+function resetView(){document.getElementById('rx').value=40;document.getElementById('ry').value=30;document.getElementById('rxv').textContent='40°';document.getElementById('ryv').textContent='30°';draw();}
+
+['rx','ry','sz','gr','amp'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',()=>{const s=id==='rx'||id==='ry'?'°':'';document.getElementById(id+'v').textContent=el.value+s;draw();});});
+document.getElementById('cmode').addEventListener('change',draw);
+draw();
+</script>
+</body>
+</html>

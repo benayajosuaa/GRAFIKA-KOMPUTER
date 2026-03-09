@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadow Light + Lambert</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Share Tech Mono',monospace;min-height:100vh;padding:40px 20px}
+  h1{font-family:'Barlow',sans-serif;font-weight:700;font-size:2rem;color:#4ade80;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#444;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:32px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;margin:0 auto}
+  .card{background:#0d120d;border:1px solid #1a2a1a;border-radius:12px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#4ade80;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #1a2a1a;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:1px solid #1a2a1a;border-radius:8px;width:100%}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .ctrl-row label{font-size:.7rem;color:#4a6a4a;width:100px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#1a2a1a;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#4ade80;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:46px;text-align:right;font-size:.78rem;color:#4ade80}
+  .formula-box{background:#050e05;border:1px solid #1a3a1a;border-radius:8px;padding:16px;font-size:.78rem;color:#86efac;line-height:2;margin-top:12px}
+  .formula-box strong{color:#4ade80}
+  .info{font-size:.75rem;line-height:2;color:#446644;margin-top:12px}
+  .info strong{color:#4ade80}
+  .full{grid-column:1/-1}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+  .step{background:#050e05;border:1px solid #1a3a1a;border-radius:8px;padding:12px;font-size:.7rem;color:#86efac;line-height:1.8}
+  .step strong{color:#4ade80;display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<h1>Shadow Light + Lambert Shading</h1>
+<p class="subtitle">Week 07 — Lighting & Shading Models</p>
+<div class="grid">
+  <div class="card">
+    <h2>3D Scene with Lambert Shading</h2>
+    <canvas id="cv3d" height="340"></canvas>
+    <div class="ctrl-row"><label>LIGHT X</label><input type="range" id="lx" min="-5" max="5" value="2" step="0.1"><div class="ctrl-val" id="lxv">2</div></div>
+    <div class="ctrl-row"><label>LIGHT Y</label><input type="range" id="ly" min="-5" max="5" value="3" step="0.1"><div class="ctrl-val" id="lyv">3</div></div>
+    <div class="ctrl-row"><label>LIGHT Z</label><input type="range" id="lz" min="-5" max="5" value="5" step="0.1"><div class="ctrl-val" id="lzv">5</div></div>
+    <div class="ctrl-row"><label>AMBIENT</label><input type="range" id="amb" min="0" max="0.5" value="0.1" step="0.01"><div class="ctrl-val" id="ambv">0.1</div></div>
+    <div class="ctrl-row"><label>ROT Y</label><input type="range" id="ry" min="-180" max="180" value="30"><div class="ctrl-val" id="ryv">30°</div></div>
+  </div>
+  <div class="card">
+    <h2>Shadow Projection (Z=0 plane)</h2>
+    <canvas id="cvShadow" height="340"></canvas>
+    <div class="formula-box">
+      <strong>Lambert Reflectance:</strong><br>
+      L = N · L_dir (dot product)<br>
+      I = ambient + max(0, L) × diffuse<br><br>
+      <strong>Shadow on Plane z=0:</strong><br>
+      t = -P.z / L_dir.z<br>
+      shadow = P + t × L_dir
+    </div>
+  </div>
+  <div class="card full">
+    <h2>Computation Steps</h2>
+    <div class="steps">
+      <div class="step"><strong>1. Triangle Normal</strong>Edge1 = V2-V1<br>Edge2 = V3-V1<br>N = Edge1 × Edge2<br>N̂ = N / |N|</div>
+      <div class="step"><strong>2. Light Direction</strong>L = Light - Centroid<br>L̂ = L / |L|<br>(normalized vector<br>from surface to light)</div>
+      <div class="step"><strong>3. Lambert Intensity</strong>I = max(0, N̂ · L̂)<br>Color = ambient<br>+ I × diffuse<br>× baseColor</div>
+      <div class="step"><strong>4. Shadow Ray</strong>Ray: P + t×L_dir<br>Plane: z = 0<br>t = -P.z / L_dir.z<br>Hit = P + t×L</div>
+    </div>
+  </div>
+</div>
+<script>
+const cv3=document.getElementById('cv3d'),cvS=document.getElementById('cvShadow');
+const ctx3=cv3.getContext('2d'),ctxS=cvS.getContext('2d');
+
+const tetrahedron={
+  v:[[0,1.5,0],[-1,-0.5,-1],[1,-0.5,-1],[0,-0.5,1.5]],
+  faces:[[0,1,2],[0,2,3],[0,3,1],[1,3,2]]
+};
+
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function add(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function scale(a,t){return[a[0]*t,a[1]*t,a[2]*t];}
+function norm(a){const l=Math.sqrt(dot(a,a));return l?[a[0]/l,a[1]/l,a[2]/l]:[0,0,0];}
+function cross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function rotY(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0]*c+v[2]*s,v[1],-v[0]*s+v[2]*c];}
+
+function project(v,W,H){const sc=Math.min(W,H)*0.3;const z=v[2]+4;const[px,py]=[W/2+v[0]*sc/z*2,H/2-v[1]*sc/z*2];return[px,py];}
+
+function faceColor(v0,v1,v2,light,ambient,baseColor){
+  const e1=sub(v1,v0),e2=sub(v2,v0);
+  const N=norm(cross(e1,e2));
+  const centroid=[(v0[0]+v1[0]+v2[0])/3,(v0[1]+v1[1]+v2[1])/3,(v0[2]+v1[2]+v2[2])/3];
+  const Ldir=norm(sub(light,centroid));
+  const I=Math.max(0,dot(N,Ldir));
+  const brightness=ambient+I*(1-ambient);
+  const r=baseColor[0]*brightness,g=baseColor[1]*brightness,b=baseColor[2]*brightness;
+  return[r|0,g|0,b|0,I];
+}
+
+function shadowPoint(P,light){
+  const Ldir=norm(sub(light,P));
+  if(Ldir[2]>=0)return null;
+  const t=-P[2]/Ldir[2];
+  return add(P,scale(Ldir,t));
+}
+
+function draw(){
+  const W3=cv3.offsetWidth;cv3.width=W3;cv3.height=340;
+  const WS=cvS.offsetWidth;cvS.width=WS;cvS.height=340;
+
+  const lx=parseFloat(document.getElementById('lx').value);
+  const ly=parseFloat(document.getElementById('ly').value);
+  const lz=parseFloat(document.getElementById('lz').value);
+  const amb=parseFloat(document.getElementById('amb').value);
+  const ry=parseFloat(document.getElementById('ry').value)*Math.PI/180;
+  const light=[lx,ly,lz];
+  const verts=tetrahedron.v.map(v=>rotY(v,ry));
+
+  ctx3.clearRect(0,0,W3,340);
+  ctxS.clearRect(0,0,WS,340);
+
+  // Draw ground plane
+  ctx3.fillStyle='#0d150d';ctx3.fillRect(0,0,W3,340);
+  ctxS.fillStyle='#0a0f0a';ctxS.fillRect(0,0,WS,340);
+  
+  // grid
+  ctx3.strokeStyle='#1a2a1a';ctx3.lineWidth=0.5;
+  for(let i=0;i<20;i++){ctx3.beginPath();ctx3.moveTo(i*W3/20,0);ctx3.lineTo(i*W3/20,340);ctx3.stroke();ctx3.beginPath();ctx3.moveTo(0,i*340/20);ctx3.lineTo(W3,i*340/20);ctx3.stroke();}
+
+  // shadow polygon
+  const shadowFace=[0,1,2,3].map(i=>{const c=[(verts[0][0]+verts[1][0]+verts[2][0])/3,(verts[0][1]+verts[1][1]+verts[2][1])/3,(verts[0][2]+verts[1][2]+verts[2][2])/3];return shadowPoint(verts[i],light);}).filter(Boolean);
+  if(shadowFace.length){
+    const sp=shadowFace.map(v=>{const V=[v[0],v[1],-0.01];return project(V,W3,340);});
+    ctx3.fillStyle='rgba(0,30,0,0.7)';
+    ctx3.beginPath();ctx3.moveTo(sp[0][0],sp[0][1]);sp.slice(1).forEach(p=>ctx3.lineTo(p[0],p[1]));ctx3.closePath();ctx3.fill();
+  }
+
+  // sort faces back to front
+  const faces=tetrahedron.faces.map(([a,b,c])=>{
+    const v0=verts[a],v1=verts[b],v2=verts[c];
+    const avgZ=(v0[2]+v1[2]+v2[2])/3;
+    return{v0,v1,v2,avgZ};
+  }).sort((a,b)=>a.avgZ-b.avgZ);
+
+  faces.forEach(({v0,v1,v2})=>{
+    const[r,g,b,I]=faceColor(v0,v1,v2,light,amb,[60,200,80]);
+    const p0=project(v0,W3,340),p1=project(v1,W3,340),p2=project(v2,W3,340);
+    ctx3.fillStyle=`rgb(${r},${g},${b})`;
+    ctx3.strokeStyle='#1a2a1a';ctx3.lineWidth=1;
+    ctx3.beginPath();ctx3.moveTo(p0[0],p0[1]);ctx3.lineTo(p1[0],p1[1]);ctx3.lineTo(p2[0],p2[1]);ctx3.closePath();
+    ctx3.fill();ctx3.stroke();
+  });
+
+  // light indicator
+  const lp=project(light,W3,340);
+  ctx3.fillStyle='#ffff00';ctx3.beginPath();ctx3.arc(lp[0],lp[1],8,0,Math.PI*2);ctx3.fill();
+  ctx3.fillStyle='#ffff00';ctx3.font='10px Share Tech Mono';ctx3.fillText('LIGHT',lp[0]+10,lp[1]+4);
+
+  // shadow panel - top view
+  ctxS.strokeStyle='#1a2a1a';ctxS.lineWidth=0.5;
+  for(let i=0;i<20;i++){ctxS.beginPath();ctxS.moveTo(i*WS/20,0);ctxS.lineTo(i*WS/20,340);ctxS.stroke();ctxS.beginPath();ctxS.moveTo(0,i*340/20);ctxS.lineTo(WS,i*340/20);ctxS.stroke();}
+  
+  const sc2=Math.min(WS,340)*0.12;const cx2=WS/2,cy2=170;
+  // shadow on floor (top view = XY plane, treating X,Y directly)
+  const shads=tetrahedron.v.map(v=>shadowPoint(rotY(v,ry),light)).filter(Boolean);
+  if(shads.length>=3){
+    ctxS.fillStyle='rgba(0,80,0,0.4)';
+    ctxS.beginPath();ctxS.moveTo(cx2+shads[0][0]*sc2,cy2-shads[0][1]*sc2);
+    shads.forEach(s=>ctxS.lineTo(cx2+s[0]*sc2,cy2-s[1]*sc2));ctxS.closePath();ctxS.fill();
+  }
+  // object top-down silhouette
+  ctxS.fillStyle='rgba(74,222,128,0.3)';ctxS.strokeStyle='#4ade80';ctxS.lineWidth=1.5;
+  tetrahedron.faces.forEach(([a,b,c])=>{
+    const v0=verts[a],v1=verts[b],v2=verts[c];
+    ctxS.beginPath();ctxS.moveTo(cx2+v0[0]*sc2,cy2-v0[1]*sc2);ctxS.lineTo(cx2+v1[0]*sc2,cy2-v1[1]*sc2);ctxS.lineTo(cx2+v2[0]*sc2,cy2-v2[1]*sc2);ctxS.closePath();ctxS.fill();ctxS.stroke();
+  });
+  ctxS.fillStyle='#ffff0088';ctxS.beginPath();ctxS.arc(cx2+lx*sc2,cy2-ly*sc2,6,0,Math.PI*2);ctxS.fill();
+  ctxS.fillStyle='#ffff00';ctxS.font='10px Share Tech Mono';ctxS.fillText('SHADOW MAP (TOP VIEW)',10,20);
+}
+
+['lx','ly','lz','amb','ry'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',()=>{const s=id==='ry'?'°':'';document.getElementById(id+'v').textContent=el.value+s;draw();});});
+window.addEventListener('resize',draw);
+draw();
+setInterval(()=>{const r=document.getElementById('ry');r.value=(parseFloat(r.value)+0.3)%360;document.getElementById('ryv').textContent=Math.round(parseFloat(r.value))+'°';draw();},50);
+</script>
+</body>
+</html>

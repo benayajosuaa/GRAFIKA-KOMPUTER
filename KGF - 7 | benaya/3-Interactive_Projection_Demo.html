@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Projection Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Space Mono',monospace;min-height:100vh;padding:32px 20px}
+  h1{font-family:'Syne',sans-serif;font-size:2rem;color:#ff6b35;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#555;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:32px}
+  .tabs{display:flex;gap:8px;justify-content:center;margin-bottom:32px}
+  .tab{padding:10px 24px;border:1px solid #333;border-radius:30px;cursor:pointer;font-family:inherit;font-size:.8rem;letter-spacing:2px;background:transparent;color:#666;transition:all .3s}
+  .tab.active{background:#ff6b35;color:#fff;border-color:#ff6b35}
+  .tab:hover:not(.active){border-color:#ff6b35;color:#ff6b35}
+  .panel{display:none;max-width:1100px;margin:0 auto}
+  .panel.active{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .panel.active.full{display:block}
+  .card{background:#151515;border:1px solid #252525;border-radius:16px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#ff6b35;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #252525;padding-bottom:12px}
+  canvas{display:block;margin:0 auto;border:1px solid #252525;border-radius:8px;background:#fff}
+  .controls{display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;align-items:center;gap:12px}
+  .row label{width:80px;font-size:.7rem;color:#888;letter-spacing:1px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#252525;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#ff6b35;border-radius:50%;cursor:pointer}
+  .vl{width:40px;text-align:right;font-size:.75rem;color:#ff6b35}
+  .btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .btn{padding:8px 16px;border:1px solid #333;border-radius:6px;background:transparent;color:#888;font-family:inherit;font-size:.75rem;cursor:pointer;transition:all .2s;letter-spacing:1px}
+  .btn:hover,.btn.active{background:#ff6b35;color:#fff;border-color:#ff6b35}
+  .info-box{background:#1a1200;border:1px solid #3a2800;border-radius:8px;padding:14px;margin-top:12px;font-size:.75rem;line-height:2;color:#aaa}
+  .info-box strong{color:#ff6b35}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.78rem}
+  td,th{padding:8px 12px;border:1px solid #252525;text-align:center}
+  th{background:#1a1a1a;color:#ff6b35;font-size:.7rem;letter-spacing:1px}
+  td{color:#ccc}
+  .highlight{color:#ff6b35;font-weight:bold}
+  .full-wrap{max-width:1100px;margin:0 auto}
+</style>
+</head>
+<body>
+<h1>Interactive Projection Demo</h1>
+<p class="subtitle">Week 07 — Compare All Projection Types</p>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('ortho')">ORTHOGONAL</button>
+  <button class="tab" onclick="switchTab('persp')">PERSPECTIVE</button>
+  <button class="tab" onclick="switchTab('compare')">COMPARE ALL</button>
+</div>
+
+<!-- ORTHO PANEL -->
+<div class="panel active" id="panel-ortho">
+  <div class="card">
+    <h2>3D Object</h2>
+    <canvas id="o3d" width="460" height="320"></canvas>
+    <div class="controls">
+      <div class="row"><label>ROT X</label><input type="range" id="orx" min="-90" max="90" value="20"><div class="vl" id="orxv">20°</div></div>
+      <div class="row"><label>ROT Y</label><input type="range" id="ory" min="-180" max="180" value="35"><div class="vl" id="oryv">35°</div></div>
+      <div class="row"><label>SCALE</label><input type="range" id="osc" min="40" max="150" value="80"><div class="vl" id="oscv">80</div></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn active" id="oshape-cube" onclick="setShape('cube')">CUBE</button>
+      <button class="btn" id="oshape-pyramid" onclick="setShape('pyramid')">PYRAMID</button>
+      <button class="btn" id="oshape-octahedron" onclick="setShape('octahedron')">OCTAHEDRON</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Orthogonal Projection</h2>
+    <canvas id="o2d" width="460" height="320"></canvas>
+    <div class="btn-group">
+      <button class="btn active" id="oaxis-z" onclick="setOrthoAxis('z')">XY PLANE</button>
+      <button class="btn" id="oaxis-y" onclick="setOrthoAxis('y')">XZ PLANE</button>
+      <button class="btn" id="oaxis-x" onclick="setOrthoAxis('x')">YZ PLANE</button>
+    </div>
+    <div class="info-box">
+      <strong>Orthogonal:</strong> No depth cue. Parallel lines stay parallel.<br>
+      Used in: CAD, blueprints, 2D games, isometric art.
+    </div>
+  </div>
+</div>
+
+<!-- PERSPECTIVE PANEL -->
+<div class="panel" id="panel-persp">
+  <div class="card">
+    <h2>3D Scene</h2>
+    <canvas id="p3d" width="460" height="320"></canvas>
+    <div class="controls">
+      <div class="row"><label>ROT Y</label><input type="range" id="pry" min="-180" max="180" value="25"><div class="vl" id="pryv">25°</div></div>
+      <div class="row"><label>ROT X</label><input type="range" id="prx" min="-60" max="60" value="15"><div class="vl" id="prxv">15°</div></div>
+      <div class="row"><label>FOV</label><input type="range" id="pfov" min="20" max="130" value="60"><div class="vl" id="pfovv">60°</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Perspective Projection</h2>
+    <canvas id="p2d" width="460" height="320"></canvas>
+    <div class="info-box">
+      <strong>Perspective:</strong> Simulates human vision. Objects far = smaller.<br>
+      Higher FOV = wider view, more distortion.<br>
+      Used in: 3D games, film, AR/VR, rendering engines.
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE PANEL -->
+<div class="panel full" id="panel-compare">
+  <div class="full-wrap">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="card"><h2>3D Original</h2><canvas id="cmp3d" width="320" height="220"></canvas></div>
+      <div class="card"><h2>Orthogonal</h2><canvas id="cmpO" width="320" height="220"></canvas></div>
+      <div class="card"><h2>Perspective</h2><canvas id="cmpP" width="320" height="220"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Comparison Table</h2>
+      <table>
+        <tr><th>Property</th><th>Orthogonal</th><th>Perspective</th></tr>
+        <tr><td>Parallel Lines</td><td class="highlight">Stay Parallel</td><td>Converge</td></tr>
+        <tr><td>Depth Cue</td><td>None</td><td class="highlight">Strong</td></tr>
+        <tr><td>Object Size</td><td class="highlight">Constant</td><td>Shrinks w/ Distance</td></tr>
+        <tr><td>Matrix Type</td><td>Drop Coordinate</td><td class="highlight">Homogeneous Divide</td></tr>
+        <tr><td>Use Case</td><td>Engineering, CAD</td><td class="highlight">Games, Film, VR</td></tr>
+        <tr><td>FOV Parameter</td><td>Not needed</td><td class="highlight">Required</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const shapes={
+  cube:{v:[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],e:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]},
+  pyramid:{v:[[0,1.5,0],[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1]],e:[[0,1],[0,2],[0,3],[0,4],[1,2],[2,3],[3,4],[4,1]]},
+  octahedron:{v:[[0,1.5,0],[0,-1.5,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]],e:[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]]}
+};
+let curShape='cube',orthoAxis='z';
+
+function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[[1,0,0],[0,c,-s],[0,s,c]];}
+function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[[c,0,s],[0,1,0],[-s,0,c]];}
+function mulMat(a,b){const r=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)r[i][j]+=a[i][k]*b[k][j];return r;}
+function applyR(m,v){return[m[0][0]*v[0]+m[0][1]*v[1]+m[0][2]*v[2],m[1][0]*v[0]+m[1][1]*v[1]+m[1][2]*v[2],m[2][0]*v[0]+m[2][1]*v[1]+m[2][2]*v[2]];}
+
+function drawIso(ctx,verts,edges,cx,cy,sc,color){
+  function iso(v){return[cx+v[0]*sc-v[2]*sc*0.35,cy-v[1]*sc+v[2]*sc*0.28];}
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;
+  edges.forEach(([a,b])=>{const pa=iso(verts[a]),pb=iso(verts[b]);ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.stroke();});
+  verts.forEach(v=>{const p=iso(v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(p[0],p[1],3,0,Math.PI*2);ctx.fill();});
+}
+
+function drawOrtho(ctx,verts,edges,cx,cy,sc,axis,color){
+  function proj(v){let px,py;if(axis==='z'){px=v[0];py=v[1];}else if(axis==='y'){px=v[0];py=v[2];}else{px=v[1];py=v[2];}return[cx+px*sc,cy-py*sc];}
+  ctx.strokeStyle=color;ctx.lineWidth=2;
+  edges.forEach(([a,b])=>{const pa=proj(verts[a]),pb=proj(verts[b]);ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.stroke();});
+  verts.forEach(v=>{const p=proj(v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(p[0],p[1],4,0,Math.PI*2);ctx.fill();});
+}
+
+function drawPersp(ctx,verts,edges,cx,cy,sc,fov,color){
+  const f=1/Math.tan(fov*Math.PI/360);
+  function proj(v){const nz=-(v[2]+4);if(nz<=0)return null;return[cx+(v[0]*f)/nz*sc,cy-(v[1]*f)/nz*sc];}
+  ctx.strokeStyle=color;ctx.lineWidth=2;
+  edges.forEach(([a,b])=>{const pa=proj(verts[a]),pb=proj(verts[b]);if(!pa||!pb)return;ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.stroke();});
+  verts.forEach(v=>{const p=proj(v);if(!p)return;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p[0],p[1],4,0,Math.PI*2);ctx.fill();});
+}
+
+function setShape(s){curShape=s;document.querySelectorAll('[id^=oshape]').forEach(b=>b.classList.remove('active'));document.getElementById('oshape-'+s).classList.add('active');drawOrtho2();}
+function setOrthoAxis(a){orthoAxis=a;document.querySelectorAll('[id^=oaxis]').forEach(b=>b.classList.remove('active'));document.getElementById('oaxis-'+a).classList.add('active');drawOrtho2();}
+
+function getOrthoVerts(){
+  const rx=parseFloat(document.getElementById('orx').value)*Math.PI/180;
+  const ry=parseFloat(document.getElementById('ory').value)*Math.PI/180;
+  const R=mulMat(rotX(rx),rotY(ry));
+  return shapes[curShape].v.map(v=>applyR(R,v));
+}
+function getPerspVerts(){
+  const rx=parseFloat(document.getElementById('prx').value)*Math.PI/180;
+  const ry=parseFloat(document.getElementById('pry').value)*Math.PI/180;
+  const R=mulMat(rotX(rx),rotY(ry));
+  return shapes.cube.v.map(v=>applyR(R,v));
+}
+
+function drawOrtho2(){
+  const sc=parseFloat(document.getElementById('osc').value);
+  const verts=getOrthoVerts();
+  const {e}=shapes[curShape];
+  const c3=document.getElementById('o3d'),ctx3=c3.getContext('2d');
+  ctx3.clearRect(0,0,c3.width,c3.height);
+  drawIso(ctx3,verts,e,c3.width/2,c3.height/2,sc,'#ff6b35');
+  const c2=document.getElementById('o2d'),ctx2=c2.getContext('2d');
+  ctx2.clearRect(0,0,c2.width,c2.height);
+  drawOrtho(ctx2,verts,e,c2.width/2,c2.height/2,sc,orthoAxis,'#4ade80');
+}
+function drawPersp2(){
+  const verts=getPerspVerts();
+  const fov=parseFloat(document.getElementById('pfov').value);
+  const c3=document.getElementById('p3d'),ctx3=c3.getContext('2d');
+  ctx3.clearRect(0,0,c3.width,c3.height);
+  drawIso(ctx3,verts,shapes.cube.e,c3.width/2,c3.height/2,80,'#ff6b35');
+  const c2=document.getElementById('p2d'),ctx2=c2.getContext('2d');
+  ctx2.clearRect(0,0,c2.width,c2.height);
+  drawPersp(ctx2,verts,shapes.cube.e,c2.width/2,c2.height/2,120,fov,'#a855f7');
+}
+function drawCompare(){
+  const ry=performance.now()/3000;
+  const R=mulMat(rotX(0.3),rotY(ry));
+  const verts=shapes.cube.v.map(v=>applyR(R,v));
+  const e=shapes.cube.e;
+  const c1=document.getElementById('cmp3d'),ctx1=c1.getContext('2d');
+  ctx1.clearRect(0,0,c1.width,c1.height);
+  drawIso(ctx1,verts,e,c1.width/2,c1.height/2,60,'#ff6b35');
+  const c2=document.getElementById('cmpO'),ctx2=c2.getContext('2d');
+  ctx2.clearRect(0,0,c2.width,c2.height);
+  drawOrtho(ctx2,verts,e,c2.width/2,c2.height/2,80,'z','#4ade80');
+  const c3=document.getElementById('cmpP'),ctx3=c3.getContext('2d');
+  ctx3.clearRect(0,0,c3.width,c3.height);
+  drawPersp(ctx3,verts,e,c3.width/2,c3.height/2,120,60,'#a855f7');
+}
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const tabs=['ortho','persp','compare'];
+  document.querySelectorAll('.tab')[tabs.indexOf(t)].classList.add('active');
+  document.getElementById('panel-'+t).classList.add('active');
+}
+
+['orx','ory','osc'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{document.getElementById(id+'v').textContent=document.getElementById(id).value+(id!=='osc'?'°':'');drawOrtho2();}));
+['prx','pry','pfov'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{document.getElementById(id+'v').textContent=document.getElementById(id).value+(id!=='pfov'?'°':'°');drawPersp2();}));
+
+let autoRy=35;
+function loop(){
+  autoRy+=0.5;document.getElementById('ory').value=autoRy%360;document.getElementById('oryv').textContent=Math.round(autoRy%360)+'°';
+  drawOrtho2();drawPersp2();drawCompare();requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Mesh Triangle</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Inter:wght@300;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'IBM Plex Mono',monospace;min-height:100vh;padding:40px 20px}
+  h1{font-family:'Inter',sans-serif;font-size:2rem;font-weight:800;color:#1a1a1a;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#888;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:40px}
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:24px;max-width:1100px;margin:0 auto}
+  .card{background:#fff;border:2px solid #1a1a1a;border-radius:4px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#888;text-transform:uppercase;margin-bottom:20px;border-bottom:2px solid #1a1a1a;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:2px solid #1a1a1a;border-radius:2px;cursor:crosshair;width:100%}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .ctrl-row label{font-size:.75rem;color:#666;width:90px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#ddd;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#1a1a1a;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:36px;text-align:right;font-size:.8rem;color:#1a1a1a}
+  .btn{width:100%;padding:10px;border:2px solid #1a1a1a;border-radius:2px;background:transparent;font-family:inherit;font-size:.8rem;letter-spacing:2px;cursor:pointer;margin-bottom:8px;transition:all .2s;text-transform:uppercase}
+  .btn:hover,.btn.active{background:#1a1a1a;color:#f5f0e8}
+  .info{font-size:.75rem;line-height:2;color:#555;margin-top:16px}
+  .info strong{color:#1a1a1a}
+  .vertex-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:12px}
+  .vertex-table th,.vertex-table td{padding:6px 8px;border:1px solid #ddd;text-align:center}
+  .vertex-table th{background:#f5f0e8;font-weight:bold}
+  .legend{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:.75rem;color:#666}
+  .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+</style>
+</head>
+<body>
+<h1>2D Mesh — Triangle</h1>
+<p class="subtitle">Week 07 — Mesh Fundamentals</p>
+<div class="layout">
+  <div class="card">
+    <h2>Canvas — Click to add vertices</h2>
+    <canvas id="cv" height="420"></canvas>
+  </div>
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="ctrl-row"><label>SUBDIVIDE</label><input type="range" id="sub" min="0" max="4" value="0" step="1"><div class="ctrl-val" id="subv">0</div></div>
+    <div class="ctrl-row"><label>POINT SIZE</label><input type="range" id="ps" min="3" max="12" value="5"><div class="ctrl-val" id="psv">5</div></div>
+    <div class="ctrl-row"><label>LINE WIDTH</label><input type="range" id="lw" min="1" max="5" value="1.5"><div class="ctrl-val" id="lwv">1.5</div></div>
+    <button class="btn" onclick="resetTriangle()">RESET DEFAULT TRIANGLE</button>
+    <button class="btn" id="fillBtn" onclick="toggleFill()">TOGGLE FILL</button>
+    <button class="btn" onclick="clearAll()">CLEAR ALL</button>
+
+    <div class="legend">
+      <div class="legend-item"><div class="dot" style="background:#e74c3c"></div> Vertex</div>
+      <div class="legend-item"><div class="dot" style="background:#2c3e50;border-radius:0"></div> Edge</div>
+      <div class="legend-item"><div class="dot" style="background:#3498db;opacity:.3"></div> Face Fill</div>
+    </div>
+
+    <div class="info">
+      <strong>Triangle Mesh</strong><br>
+      Vertices: <span id="nv">3</span><br>
+      Edges: <span id="ne">3</span><br>
+      Faces: <span id="nf">1</span><br>
+      Euler: V - E + F = <span id="euler">1</span>
+    </div>
+
+    <table class="vertex-table" id="vtable">
+      <tr><th>#</th><th>X</th><th>Y</th></tr>
+    </table>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let vertices=[],showFill=true,subdivLevel=0;
+
+function resetTriangle(){
+  const W=cv.offsetWidth,H=430;
+  vertices=[[W/2,80],[W*0.15,H-60],[W*0.85,H-60]];
+  subdivLevel=0;document.getElementById('sub').value=0;document.getElementById('subv').textContent='0';
+  draw();
+}
+
+function getMidpoint(a,b){return[(a[0]+b[0])/2,(a[1]+b[1])/2];}
+
+function subdivideTriangle(v0,v1,v2,level){
+  if(level===0)return[[v0,v1,v2]];
+  const m01=getMidpoint(v0,v1),m12=getMidpoint(v1,v2),m20=getMidpoint(v2,v0);
+  return[
+    ...subdivideTriangle(v0,m01,m20,level-1),
+    ...subdivideTriangle(m01,v1,m12,level-1),
+    ...subdivideTriangle(m20,m12,v2,level-1),
+    ...subdivideTriangle(m01,m12,m20,level-1)
+  ];
+}
+
+function draw(){
+  const W=cv.offsetWidth;cv.width=W;cv.height=430;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(vertices.length<3){
+    vertices.forEach((v,i)=>{ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.arc(v[0],v[1],6,0,Math.PI*2);ctx.fill();});
+    return;
+  }
+  const level=parseInt(document.getElementById('sub').value);
+  const triangles=subdivideTriangle(vertices[0],vertices[1],vertices[2],level);
+  const lw=parseFloat(document.getElementById('lw').value);
+  const ps=parseInt(document.getElementById('ps').value);
+
+  // draw faces
+  if(showFill){
+    triangles.forEach(([a,b,c],i)=>{
+      const hue=(i*37)%360;
+      ctx.fillStyle=`hsla(${hue},60%,70%,0.25)`;
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.fill();
+    });
+  }
+  // draw edges
+  ctx.strokeStyle='#2c3e50';ctx.lineWidth=lw;
+  triangles.forEach(([a,b,c])=>{
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.stroke();
+  });
+  // draw verts
+  const allVerts=new Set();
+  triangles.forEach(([a,b,c])=>{[a,b,c].forEach(v=>allVerts.add(v[0].toFixed(1)+','+v[1].toFixed(1)));});
+  triangles.forEach(([a,b,c])=>{[a,b,c].forEach(v=>{ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.arc(v[0],v[1],ps/2,0,Math.PI*2);ctx.fill();});});
+
+  // stats
+  const nv=allVerts.size;const nf=triangles.length;const ne=nf*3/2+nv-1;
+  document.getElementById('nv').textContent=nv;
+  document.getElementById('ne').textContent=nf*3/2|0;
+  document.getElementById('nf').textContent=nf;
+  document.getElementById('euler').textContent=(nv-(nf*3/2|0)+nf);
+
+  // table
+  const t=document.getElementById('vtable');
+  t.innerHTML='<tr><th>#</th><th>X</th><th>Y</th></tr>';
+  vertices.forEach((v,i)=>{t.innerHTML+=`<tr><td>${i+1}</td><td>${v[0].toFixed(0)}</td><td>${v[1].toFixed(0)}</td></tr>`;});
+}
+
+cv.addEventListener('click',e=>{
+  const rect=cv.getBoundingClientRect();
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  vertices.push([x,y]);if(vertices.length>3)vertices.shift();
+  draw();
+});
+
+function toggleFill(){showFill=!showFill;document.getElementById('fillBtn').classList.toggle('active',showFill);draw();}
+function clearAll(){vertices=[];draw();}
+document.getElementById('sub').addEventListener('input',e=>{subdivLevel=parseInt(e.target.value);document.getElementById('subv').textContent=e.target.value;draw();});
+document.getElementById('ps').addEventListener('input',e=>{document.getElementById('psv').textContent=e.target.value;draw();});
+document.getElementById('lw').addEventListener('input',e=>{document.getElementById('lwv').textContent=e.target.value;draw();});
+
+window.addEventListener('resize',draw);
+resetTriangle();
+</script>
+</body>
+</html>

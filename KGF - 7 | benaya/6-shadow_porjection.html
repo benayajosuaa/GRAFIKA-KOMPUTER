@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadow Projection</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:#111;font-family:'Share Tech Mono',monospace;min-height:100vh;padding:40px 20px}
+  h1{font-family:'Barlow',sans-serif;font-weight:700;font-size:2rem;color:#60a5fa;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#333;font-size:.75rem;letter-spacing:4px;text-transform:uppercase;margin-bottom:32px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;margin:0 auto}
+  .card{background:#0c0e18;border:1px solid #1a2040;border-radius:12px;padding:28px}
+  .card h2{font-size:.7rem;letter-spacing:3px;color:#60a5fa;text-transform:uppercase;margin-bottom:20px;border-bottom:1px solid #1a2040;padding-bottom:12px}
+  canvas{display:block;background:#fff;border:1px solid #1a2040;border-radius:8px;width:100%}
+  .ctrl-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .ctrl-row label{font-size:.7rem;color:#3a4a7a;width:100px;flex-shrink:0}
+  input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:#1a2040;outline:none;border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#60a5fa;border-radius:50%;cursor:pointer}
+  .ctrl-val{width:46px;text-align:right;font-size:.78rem;color:#60a5fa}
+  .formula-box{background:#06080e;border:1px solid #1a3060;border-radius:8px;padding:16px;font-size:.78rem;color:#93c5fd;line-height:2;margin-top:12px}
+  .formula-box strong{color:#60a5fa}
+  .full{grid-column:1/-1}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+  .step{background:#06080e;border:1px solid #1a3060;border-radius:8px;padding:14px;font-size:.7rem;color:#93c5fd;line-height:1.8}
+  .step strong{color:#60a5fa;display:block;margin-bottom:4px}
+  .data-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:12px}
+  .data-table th,.data-table td{padding:6px 8px;border:1px solid #1a2040;text-align:center}
+  .data-table th{background:#0c0e18;color:#60a5fa;font-size:.65rem;letter-spacing:1px}
+  .data-table td{color:#93c5fd}
+  .highlight{color:#f59e0b !important}
+</style>
+</head>
+<body>
+<h1>Shadow Projection</h1>
+<p class="subtitle">Week 07 — Shadow Casting on Plane</p>
+<div class="grid">
+  <div class="card">
+    <h2>3D View — Shadow Casting</h2>
+    <canvas id="cv3d" height="340"></canvas>
+    <div class="ctrl-row"><label>LIGHT X</label><input type="range" id="lx" min="-6" max="6" value="2" step="0.1"><div class="ctrl-val" id="lxv">2</div></div>
+    <div class="ctrl-row"><label>LIGHT Y</label><input type="range" id="ly" min="1" max="8" value="5" step="0.1"><div class="ctrl-val" id="lyv">5</div></div>
+    <div class="ctrl-row"><label>LIGHT Z</label><input type="range" id="lz" min="-6" max="6" value="3" step="0.1"><div class="ctrl-val" id="lzv">3</div></div>
+    <div class="ctrl-row"><label>ROT Y</label><input type="range" id="ry" min="-180" max="180" value="20"><div class="ctrl-val" id="ryv">20°</div></div>
+  </div>
+  <div class="card">
+    <h2>Shadow Map (XZ Plane)</h2>
+    <canvas id="cvS" height="340"></canvas>
+    <div class="formula-box">
+      <strong>Shadow Projection Formula:</strong><br>
+      Given point P and light L:<br>
+      direction = P - L (ray from light)<br>
+      t = (plane.y - L.y) / direction.y<br>
+      shadow = L + t × direction<br><br>
+      <strong>Result:</strong> shadow.y = 0 (on plane)
+    </div>
+  </div>
+  <div class="card full">
+    <h2>Vertex Data Table</h2>
+    <table class="data-table" id="dataTable">
+      <tr><th>Vertex</th><th>X</th><th>Y</th><th>Z</th><th>Shadow X</th><th>Shadow Y</th><th>Shadow Z</th></tr>
+    </table>
+  </div>
+  <div class="card full">
+    <h2>Shadow Projection Steps</h2>
+    <div class="steps">
+      <div class="step"><strong>Step 1 — Setup</strong>Triangle vertices V0,V1,V2<br>Light source L = (lx,ly,lz)<br>Shadow plane: y = 0</div>
+      <div class="step"><strong>Step 2 — Ray</strong>For each vertex P:<br>dir = P - L<br>(ray from light<br>through vertex)</div>
+      <div class="step"><strong>Step 3 — Intersect</strong>t = (0 - L.y) / dir.y<br>shadow = L + t × dir<br>shadow.y ≈ 0<br>(on ground plane)</div>
+      <div class="step"><strong>Step 4 — Render</strong>Draw shadow polygon<br>using shadow vertices.<br>Apply dark color<br>with transparency.</div>
+    </div>
+  </div>
+</div>
+<script>
+const cv3=document.getElementById('cv3d'),cvS=document.getElementById('cvShadow')||document.getElementById('cvS');
+const ctx3=cv3.getContext('2d'),ctxS=cvS.getContext('2d');
+
+const triangle={v:[[0,2,0],[-1.5,0,-1],[1.5,0,-1]]};
+
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function add(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function scale(a,t){return[a[0]*t,a[1]*t,a[2]*t];}
+function norm(a){const l=Math.sqrt(dot(a,a));return l?[a[0]/l,a[1]/l,a[2]/l]:[0,0,0];}
+function cross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function rotY(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0]*c+v[2]*s,v[1],-v[0]*s+v[2]*c];}
+
+function castShadow(P,L,planeY=0){
+  const dir=sub(P,L);
+  if(Math.abs(dir[1])<0.0001)return null;
+  const t=(planeY-L[1])/dir[1];
+  if(t<0)return null;
+  return add(L,scale(dir,t));
+}
+
+function project3D(v,W,H){const sc=Math.min(W,H)*0.22;const z=v[2]+5;const[px,py]=[W/2+v[0]*sc/z*3,H/2-v[1]*sc/z*3];return[px,py];}
+
+function drawGrid(ctx,W,H,color){
+  ctx.strokeStyle=color;ctx.lineWidth=0.4;
+  for(let i=0;i<=20;i++){ctx.beginPath();ctx.moveTo(i*W/20,0);ctx.lineTo(i*W/20,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*H/20);ctx.lineTo(W,i*H/20);ctx.stroke();}
+}
+
+function draw(){
+  const W3=cv3.offsetWidth;cv3.width=W3;cv3.height=340;
+  const WS=cvS.offsetWidth;cvS.width=WS;cvS.height=340;
+  const lx=parseFloat(document.getElementById('lx').value);
+  const ly=parseFloat(document.getElementById('ly').value);
+  const lz=parseFloat(document.getElementById('lz').value);
+  const ry=parseFloat(document.getElementById('ry').value)*Math.PI/180;
+  const L=[lx,ly,lz];
+  const verts=triangle.v.map(v=>rotY(v,ry));
+  const shadows=verts.map(v=>castShadow(v,L,0)).filter(Boolean);
+
+  // 3D View
+  ctx3.fillStyle='#060810';ctx3.fillRect(0,0,W3,340);
+  drawGrid(ctx3,W3,340,'#0f1630');
+  // ground plane visual
+  const corners=[[-4,0,-4],[4,0,-4],[4,0,4],[-4,0,4]].map(v=>project3D(rotY(v,ry),W3,340));
+  ctx3.fillStyle='rgba(16,24,48,0.8)';ctx3.beginPath();corners.forEach((p,i)=>i?ctx3.lineTo(p[0],p[1]):ctx3.moveTo(p[0],p[1]));ctx3.closePath();ctx3.fill();
+  ctx3.strokeStyle='#1a3060';ctx3.lineWidth=1;ctx3.stroke();
+
+  // shadow
+  if(shadows.length===3){
+    const sp=shadows.map(s=>project3D(s,W3,340));
+    ctx3.fillStyle='rgba(0,0,30,0.7)';ctx3.strokeStyle='#1a3060';ctx3.lineWidth=1;
+    ctx3.beginPath();ctx3.moveTo(sp[0][0],sp[0][1]);sp.slice(1).forEach(p=>ctx3.lineTo(p[0],p[1]));ctx3.closePath();ctx3.fill();ctx3.stroke();
+  }
+  // shadow rays
+  verts.forEach((v,i)=>{
+    if(!shadows[i])return;
+    const pv=project3D(v,W3,340),ps=project3D(shadows[i],W3,340),pL=project3D(L,W3,340);
+    ctx3.strokeStyle='rgba(96,165,250,0.25)';ctx3.lineWidth=1;ctx3.setLineDash([4,4]);
+    ctx3.beginPath();ctx3.moveTo(pL[0],pL[1]);ctx3.lineTo(pv[0],pv[1]);ctx3.lineTo(ps[0],ps[1]);ctx3.stroke();ctx3.setLineDash([]);
+  });
+  // triangle
+  const tp=verts.map(v=>project3D(v,W3,340));
+  ctx3.fillStyle='rgba(96,165,250,0.4)';ctx3.strokeStyle='#60a5fa';ctx3.lineWidth=2;
+  ctx3.beginPath();ctx3.moveTo(tp[0][0],tp[0][1]);tp.slice(1).forEach(p=>ctx3.lineTo(p[0],p[1]));ctx3.closePath();ctx3.fill();ctx3.stroke();
+  verts.forEach((v,i)=>{const p=project3D(v,W3,340);ctx3.fillStyle='#60a5fa';ctx3.beginPath();ctx3.arc(p[0],p[1],5,0,Math.PI*2);ctx3.fill();ctx3.fillStyle='#fff';ctx3.font='10px Share Tech Mono';ctx3.fillText('V'+i,p[0]+7,p[1]-5);});
+  // light
+  const lp=project3D(L,W3,340);ctx3.fillStyle='#fbbf24';ctx3.beginPath();ctx3.arc(lp[0],lp[1],8,0,Math.PI*2);ctx3.fill();
+  ctx3.fillStyle='#fbbf24';ctx3.font='10px Share Tech Mono';ctx3.fillText('LIGHT',lp[0]+10,lp[1]+4);
+
+  // Shadow map top-down
+  ctxS.fillStyle='#060810';ctxS.fillRect(0,0,WS,340);
+  drawGrid(ctxS,WS,340,'#0f1630');
+  const sc2=40,cx2=WS/2,cy2=170;
+  // ground plane grid lines
+  ctxS.strokeStyle='#1a3060';ctxS.lineWidth=0.8;
+  for(let i=-5;i<=5;i++){ctxS.beginPath();ctxS.moveTo(cx2+i*sc2,0);ctxS.lineTo(cx2+i*sc2,340);ctxS.stroke();ctxS.beginPath();ctxS.moveTo(0,cy2+i*sc2);ctxS.lineTo(WS,cy2+i*sc2);ctxS.stroke();}
+  // shadow on XZ plane (top view: x→x, z→y)
+  if(shadows.length===3){
+    ctxS.fillStyle='rgba(0,0,60,0.8)';ctxS.strokeStyle='#1a3060';ctxS.lineWidth=1;
+    ctxS.beginPath();ctxS.moveTo(cx2+shadows[0][0]*sc2,cy2+shadows[0][2]*sc2);
+    shadows.slice(1).forEach(s=>ctxS.lineTo(cx2+s[0]*sc2,cy2+s[2]*sc2));ctxS.closePath();ctxS.fill();ctxS.stroke();
+    shadows.forEach((s,i)=>{ctxS.fillStyle='#1a3060';ctxS.beginPath();ctxS.arc(cx2+s[0]*sc2,cy2+s[2]*sc2,4,0,Math.PI*2);ctxS.fill();ctxS.fillStyle='#3a6060';ctxS.font='9px Share Tech Mono';ctxS.fillText('S'+i,cx2+s[0]*sc2+6,cy2+s[2]*sc2+4);});
+  }
+  // object footprint
+  verts.forEach(v=>{ctxS.fillStyle='rgba(96,165,250,0.5)';ctxS.beginPath();ctxS.arc(cx2+v[0]*sc2,cy2+v[2]*sc2,5,0,Math.PI*2);ctxS.fill();});
+  ctxS.fillStyle='#93c5fd';ctxS.font='11px Share Tech Mono';ctxS.fillText('XZ PLANE (y=0)',10,20);
+  // light on XZ
+  ctxS.fillStyle='#fbbf24';ctxS.beginPath();ctxS.arc(cx2+lx*sc2,cy2+lz*sc2,7,0,Math.PI*2);ctxS.fill();
+
+  // data table
+  const t=document.getElementById('dataTable');
+  t.innerHTML='<tr><th>Vertex</th><th>X</th><th>Y</th><th>Z</th><th>Shadow X</th><th>Shadow Y</th><th>Shadow Z</th></tr>';
+  verts.forEach((v,i)=>{const s=shadows[i]||['-','-','-'];t.innerHTML+=`<tr><td>V${i}</td><td>${v[0].toFixed(2)}</td><td>${v[1].toFixed(2)}</td><td>${v[2].toFixed(2)}</td><td class="highlight">${s[0]!=='-'?s[0].toFixed(2):'-'}</td><td class="highlight">${s[1]!=='-'?s[1].toFixed(2):'-'}</td><td class="highlight">${s[2]!=='-'?s[2].toFixed(2):'-'}</td></tr>`;});
+}
+
+['lx','ly','lz','ry'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',()=>{const s=id==='ry'?'°':'';document.getElementById(id+'v').textContent=el.value+s;draw();});});
+window.addEventListener('resize',draw);
+draw();
+setInterval(()=>{const r=document.getElementById('ry');r.value=(parseFloat(r.value)+0.3)%360;document.getElementById('ryv').textContent=Math.round(parseFloat(r.value))+'°';draw();},50);
+</script>
+</body>
+</html>
