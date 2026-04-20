@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulasi DDA Rasterisasi Interaktif</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --pixel: #fbbf24;
+      --ideal: #f43f5e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 0%, #172a50, #0f172a 38%, #0a1020 100%);
+      color: var(--text);
+      font-family: "Segoe UI", sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    h2 { margin: 0 0 4px; color: var(--accent); }
+    p { margin: 0; color: var(--muted); }
+    .layout {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 320px minmax(300px, 1fr);
+      gap: 14px;
+    }
+    .panel {
+      background: linear-gradient(180deg, #1f314f, var(--card));
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 14px 30px rgba(0,0,0,.35);
+    }
+    .controls { padding: 12px; display: grid; gap: 12px; }
+    .group { border: 1px solid #334155; border-radius: 10px; padding: 10px; background: rgba(2,6,23,.3); }
+    .group h3 { margin: 0 0 8px; font-size: .9rem; color: #7dd3fc; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+    input[type="number"], input[type="range"] {
+      width: 100%; padding: 7px; border-radius: 8px; border: 1px solid #334155;
+      background: #0b1220; color: #e2e8f0;
+    }
+    .buttons { display: grid; gap: 8px; }
+    button {
+      border: 0; border-radius: 8px; padding: 9px 10px; font-weight: 700; cursor: pointer;
+      background: var(--accent); color: #082f49;
+    }
+    button.secondary { background: #334155; color: #e2e8f0; }
+    #pointList {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      max-height: 200px; overflow: auto; font-size: .78rem; line-height: 1.4;
+      background: #020617; border-radius: 8px; padding: 8px; border: 1px solid #1e293b;
+    }
+    .canvasWrap { padding: 10px; }
+    canvas { width: 100%; max-height: 78vh; background: #090f1e; border: 1px solid #334155; border-radius: 10px; display: block; cursor: crosshair; }
+    .mini { font-size: .8rem; color: var(--muted); }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h2>DDA Line Rasterization</h2>
+  <p>Klik canvas dua kali untuk set titik awal dan akhir, lalu animasikan langkah DDA.</p>
+
+  <div class="layout">
+    <div class="panel controls">
+      <div class="group">
+        <h3>Koordinat</h3>
+        <div class="grid2">
+          <div><label>x1</label><input id="x1" type="number" value="2" /></div>
+          <div><label>y1</label><input id="y1" type="number" value="3" /></div>
+          <div><label>x2</label><input id="x2" type="number" value="15" /></div>
+          <div><label>y2</label><input id="y2" type="number" value="10" /></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>Animasi</h3>
+        <label>Kecepatan: <span id="speedText">60</span> ms/step</label>
+        <input id="speed" type="range" min="20" max="250" step="10" value="60" />
+        <div class="buttons" style="margin-top:8px;">
+          <button id="drawBtn">Rasterisasi Sekarang</button>
+          <button id="animBtn" class="secondary">Animasi Step-by-Step</button>
+          <button id="clearBtn" class="secondary">Reset</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>Daftar Pixel</h3>
+        <div id="pointList">Belum ada data.</div>
+      </div>
+    </div>
+
+    <div class="panel canvasWrap">
+      <canvas id="canvas" width="820" height="560"></canvas>
+      <p class="mini" style="margin:8px 4px 0;">Sumbu X ke kanan, sumbu Y ke atas. Titik merah muda = garis ideal, kotak kuning = pixel hasil DDA.</p>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const el = {
+      x1: document.getElementById("x1"), y1: document.getElementById("y1"),
+      x2: document.getElementById("x2"), y2: document.getElementById("y2"),
+      speed: document.getElementById("speed"), speedText: document.getElementById("speedText"),
+      pointList: document.getElementById("pointList")
+    };
+
+    const gridSize = 24;
+    const origin = { x: 50, y: canvas.height - 50 };
+    let points = [];
+    let animFrame = 0;
+    let timer = null;
+    let clickBuffer = [];
+
+    function toCanvas(x, y) {
+      return { x: origin.x + x * gridSize, y: origin.y - y * gridSize };
+    }
+
+    function toGrid(px, py) {
+      return {
+        x: Math.round((px - origin.x) / gridSize),
+        y: Math.round((origin.y - py) / gridSize)
+      };
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#1f2937";
+      ctx.lineWidth = 1;
+      for (let x = origin.x; x <= canvas.width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let x = origin.x; x >= 0; x -= gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = origin.y; y <= canvas.height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+      for (let y = origin.y; y >= 0; y -= gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(canvas.width, origin.y); ctx.stroke();
+    }
+
+    function computeDDA(x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy));
+      if (steps === 0) return [{ x: x1, y: y1 }];
+      const xInc = dx / steps;
+      const yInc = dy / steps;
+      let x = x1;
+      let y = y1;
+      const out = [];
+      for (let i = 0; i <= steps; i++) {
+        out.push({ x: Math.round(x), y: Math.round(y), i });
+        x += xInc;
+        y += yInc;
+      }
+      return out;
+    }
+
+    function drawPixels(limit = points.length) {
+      const x1 = Number(el.x1.value), y1 = Number(el.y1.value), x2 = Number(el.x2.value), y2 = Number(el.y2.value);
+      const p1 = toCanvas(x1, y1), p2 = toCanvas(x2, y2);
+
+      ctx.strokeStyle = "#f43f5e";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (let i = 0; i < limit; i++) {
+        const p = points[i];
+        const c = toCanvas(p.x, p.y);
+        ctx.strokeStyle = i === limit - 1 ? "#f59e0b" : "#fbbf24";
+        ctx.lineWidth = i === limit - 1 ? 3 : 2;
+        ctx.strokeRect(c.x - gridSize / 2 + 2, c.y - gridSize / 2 + 2, gridSize - 4, gridSize - 4);
+      }
+    }
+
+    function renderList(limit = points.length) {
+      if (!points.length) {
+        el.pointList.textContent = "Belum ada data.";
+        return;
+      }
+      el.pointList.innerHTML = points
+        .map((p, i) => `${i === limit - 1 ? "<b>" : ""}Step ${String(i).padStart(2, "0")}: [${p.x}, ${p.y}]${i === limit - 1 ? "</b>" : ""}`)
+        .join("<br>");
+    }
+
+    function run(animate = false) {
+      clearInterval(timer);
+      animFrame = 0;
+      points = computeDDA(Number(el.x1.value), Number(el.y1.value), Number(el.x2.value), Number(el.y2.value));
+      drawGrid();
+      if (!animate) {
+        drawPixels(points.length);
+        renderList(points.length);
+        return;
+      }
+
+      timer = setInterval(() => {
+        drawGrid();
+        animFrame = Math.min(animFrame + 1, points.length);
+        drawPixels(animFrame);
+        renderList(animFrame);
+        if (animFrame >= points.length) clearInterval(timer);
+      }, Number(el.speed.value));
+    }
+
+    function resetAll() {
+      clearInterval(timer);
+      points = [];
+      clickBuffer = [];
+      drawGrid();
+      renderList(0);
+    }
+
+    document.getElementById("drawBtn").addEventListener("click", () => run(false));
+    document.getElementById("animBtn").addEventListener("click", () => run(true));
+    document.getElementById("clearBtn").addEventListener("click", resetAll);
+
+    el.speed.addEventListener("input", () => {
+      el.speedText.textContent = el.speed.value;
+    });
+
+    canvas.addEventListener("click", (e) => {
+      const r = canvas.getBoundingClientRect();
+      const g = toGrid(e.clientX - r.left, e.clientY - r.top);
+      clickBuffer.push(g);
+      if (clickBuffer.length === 1) {
+        el.x1.value = g.x;
+        el.y1.value = g.y;
+      }
+      if (clickBuffer.length === 2) {
+        el.x2.value = g.x;
+        el.y2.value = g.y;
+        clickBuffer = [];
+        run(false);
+      }
+    });
+
+    drawGrid();
+    run(false);
+  </script>
+</body>
+</html>

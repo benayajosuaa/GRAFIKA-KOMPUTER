@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cohen-Sutherland 3D Interaktif</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: #13233a;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --acc: #f43f5e;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 70% 10%, #162f4d, #020617 48%, #01040d 100%);
+      color: var(--text);
+      font-family: "Segoe UI", sans-serif;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+    }
+    .side {
+      border-right: 1px solid #334155;
+      background: linear-gradient(180deg, #172b47, var(--panel));
+      padding: 12px;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: rgba(2,6,23,.35);
+      padding: 10px;
+    }
+    h1 { margin: 0; font-size: 1.1rem; color: var(--acc); letter-spacing: .4px; }
+    h3 { margin: 0 0 8px; color: #fda4af; font-size: .92rem; }
+    .muted { color: var(--muted); font-size: .83rem; margin: 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    label { display: block; font-size: .73rem; color: var(--muted); margin-bottom: 4px; }
+    input[type="number"], input[type="range"] {
+      width: 100%; padding: 6px; border-radius: 8px;
+      border: 1px solid #334155; background: #0b1220; color: #e2e8f0;
+    }
+    .lineTitle { font-size: .85rem; font-weight: 700; margin: 6px 0; }
+    button {
+      border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-weight: 700;
+      background: #f43f5e; color: white;
+    }
+    button.secondary { background: #334155; }
+    .btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
+    canvas { width: 100%; height: 100vh; display: block; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid #334155; }
+    .badge { padding: 2px 6px; border-radius: 5px; font-size: .72rem; font-weight: 700; }
+    .ins { background: #064e3b; color: var(--ok); }
+    .part { background: #78350f; color: var(--warn); }
+    .rej { background: #7f1d1d; color: var(--bad); }
+    @media (max-width: 980px) {
+      body { grid-template-columns: 1fr; }
+      canvas { height: 60vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="side">
+    <div class="card">
+      <h1>Cohen-Sutherland 3D</h1>
+      <p class="muted">Drag canvas untuk rotasi, scroll untuk zoom. Ubah koordinat garis dan volume clipping untuk lihat status real-time.</p>
+    </div>
+
+    <div class="card">
+      <h3>Clipping Volume</h3>
+      <div class="grid2">
+        <div>
+          <label>Min (0..2)</label>
+          <input id="boxMin" type="range" min="0" max="2" step="0.1" value="0" />
+        </div>
+        <div>
+          <label>Max (1..5)</label>
+          <input id="boxMax" type="range" min="1" max="5" step="0.1" value="3" />
+        </div>
+      </div>
+      <p class="muted" id="boxLabel" style="margin-top:8px;">Box: [0.0, 3.0]</p>
+    </div>
+
+    <div class="card">
+      <h3>Data Garis</h3>
+      <div class="lineTitle" style="color:#ff6b6b;">Merah</div>
+      <div class="grid3">
+        <div><label>x1</label><input id="r_x1" type="number" step="0.1" value="1" /></div>
+        <div><label>y1</label><input id="r_y1" type="number" step="0.1" value="1" /></div>
+        <div><label>z1</label><input id="r_z1" type="number" step="0.1" value="1" /></div>
+        <div><label>x2</label><input id="r_x2" type="number" step="0.1" value="2" /></div>
+        <div><label>y2</label><input id="r_y2" type="number" step="0.1" value="2" /></div>
+        <div><label>z2</label><input id="r_z2" type="number" step="0.1" value="2" /></div>
+      </div>
+
+      <div class="lineTitle" style="color:#ffcc00;">Kuning</div>
+      <div class="grid3">
+        <div><label>x1</label><input id="y_x1" type="number" step="0.1" value="-1" /></div>
+        <div><label>y1</label><input id="y_y1" type="number" step="0.1" value="-1" /></div>
+        <div><label>z1</label><input id="y_z1" type="number" step="0.1" value="4" /></div>
+        <div><label>x2</label><input id="y_x2" type="number" step="0.1" value="1.5" /></div>
+        <div><label>y2</label><input id="y_y2" type="number" step="0.1" value="1.5" /></div>
+        <div><label>z2</label><input id="y_z2" type="number" step="0.1" value="1.5" /></div>
+      </div>
+
+      <div class="lineTitle" style="color:#67e8f9;">Cyan</div>
+      <div class="grid3">
+        <div><label>x1</label><input id="c_x1" type="number" step="0.1" value="4" /></div>
+        <div><label>y1</label><input id="c_y1" type="number" step="0.1" value="4" /></div>
+        <div><label>z1</label><input id="c_z1" type="number" step="0.1" value="4" /></div>
+        <div><label>x2</label><input id="c_x2" type="number" step="0.1" value="5" /></div>
+        <div><label>y2</label><input id="c_y2" type="number" step="0.1" value="5" /></div>
+        <div><label>z2</label><input id="c_z2" type="number" step="0.1" value="5" /></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Kontrol View</h3>
+      <div class="btnRow">
+        <button id="resetView" class="secondary">Reset Kamera</button>
+        <button id="randomize">Random Garis</button>
+      </div>
+      <label style="margin-top:8px;display:flex;align-items:center;gap:7px;">
+        <input id="autoRotate" type="checkbox" checked /> Auto Rotate
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>Status Clipping</h3>
+      <table>
+        <thead><tr><th>Garis</th><th>Status</th></tr></thead>
+        <tbody id="statusBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <canvas id="glCanvas"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
+  <script>
+    const canvas = document.getElementById("glCanvas");
+    const gl = canvas.getContext("webgl");
+
+    const statusBody = document.getElementById("statusBody");
+    const boxMinEl = document.getElementById("boxMin");
+    const boxMaxEl = document.getElementById("boxMax");
+    const boxLabel = document.getElementById("boxLabel");
+    const autoRotateEl = document.getElementById("autoRotate");
+
+    const ids = [
+      "r_x1","r_y1","r_z1","r_x2","r_y2","r_z2",
+      "y_x1","y_y1","y_z1","y_x2","y_y2","y_z2",
+      "c_x1","c_y1","c_z1","c_x2","c_y2","c_z2"
+    ];
+
+    if (!gl) alert("WebGL tidak didukung browser ini.");
+
+    const vs = `
+      attribute vec3 a_pos;
+      uniform mat4 u_mat;
+      uniform vec4 u_color;
+      varying vec4 v_color;
+      void main() {
+        gl_Position = u_mat * vec4(a_pos, 1.0);
+        v_color = u_color;
+      }
+    `;
+
+    const fs = `
+      precision mediump float;
+      varying vec4 v_color;
+      void main() {
+        gl_FragColor = v_color;
+      }
+    `;
+
+    function shader(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    }
+
+    const prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const aPos = gl.getAttribLocation(prog, "a_pos");
+    const uMat = gl.getUniformLocation(prog, "u_mat");
+    const uColor = gl.getUniformLocation(prog, "u_color");
+
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aPos);
+
+    let rotX = -0.6;
+    let rotY = 0.7;
+    let zoom = -8;
+    let dragging = false;
+    let lx = 0, ly = 0;
+
+    canvas.addEventListener("mousedown", (e) => { dragging = true; lx = e.clientX; ly = e.clientY; });
+    window.addEventListener("mouseup", () => dragging = false);
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      rotY += (e.clientX - lx) * 0.01;
+      rotX += (e.clientY - ly) * 0.01;
+      lx = e.clientX;
+      ly = e.clientY;
+    });
+    canvas.addEventListener("wheel", (e) => {
+      zoom += e.deltaY * 0.01;
+      zoom = Math.min(-3.5, Math.max(-20, zoom));
+      e.preventDefault();
+    });
+
+    function scene(v) {
+      return (v - 1.5) / 2.2;
+    }
+
+    function getLinesFromInputs() {
+      const n = (id) => Number(document.getElementById(id).value);
+      return [
+        { name: "Merah", color: [1, 0.35, 0.35, 1], p1: [n("r_x1"), n("r_y1"), n("r_z1")], p2: [n("r_x2"), n("r_y2"), n("r_z2")] },
+        { name: "Kuning", color: [1, 0.82, 0.2, 1], p1: [n("y_x1"), n("y_y1"), n("y_z1")], p2: [n("y_x2"), n("y_y2"), n("y_z2")] },
+        { name: "Cyan", color: [0.4, 0.9, 1, 1], p1: [n("c_x1"), n("c_y1"), n("c_z1")], p2: [n("c_x2"), n("c_y2"), n("c_z2")] }
+      ];
+    }
+
+    function clipLine3D(p0, p1, bmin, bmax) {
+      const d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+      let t0 = 0;
+      let t1 = 1;
+
+      function test(p, q) {
+        if (Math.abs(p) < 1e-8) return q >= 0;
+        const t = q / p;
+        if (p < 0) {
+          if (t > t1) return false;
+          if (t > t0) t0 = t;
+        } else {
+          if (t < t0) return false;
+          if (t < t1) t1 = t;
+        }
+        return true;
+      }
+
+      if (
+        test(-d[0], p0[0] - bmin) && test(d[0], bmax - p0[0]) &&
+        test(-d[1], p0[1] - bmin) && test(d[1], bmax - p0[1]) &&
+        test(-d[2], p0[2] - bmin) && test(d[2], bmax - p0[2])
+      ) {
+        const q0 = [p0[0] + t0 * d[0], p0[1] + t0 * d[1], p0[2] + t0 * d[2]];
+        const q1 = [p0[0] + t1 * d[0], p0[1] + t1 * d[1], p0[2] + t1 * d[2]];
+        const same = Math.abs(t0) < 1e-6 && Math.abs(t1 - 1) < 1e-6;
+        return { accept: true, q0, q1, status: same ? "INSIDE" : "PARTIAL" };
+      }
+
+      return { accept: false, q0: null, q1: null, status: "REJECT" };
+    }
+
+    function statusBadge(status) {
+      if (status === "INSIDE") return "ins";
+      if (status === "PARTIAL") return "part";
+      return "rej";
+    }
+
+    function drawSegments(verts, color, width) {
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+      gl.uniform4fv(uColor, color);
+      gl.lineWidth(width);
+      gl.drawArrays(gl.LINES, 0, verts.length / 3);
+    }
+
+    function cubeVerts(min, max) {
+      const p = [
+        [min,min,min],[max,min,min],[max,max,min],[min,max,min],
+        [min,min,max],[max,min,max],[max,max,max],[min,max,max]
+      ].map((v) => [scene(v[0]), scene(v[1]), scene(v[2])]);
+      const idx = [0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7];
+      const out = [];
+      for (let i = 0; i < idx.length; i++) out.push(...p[idx[i]]);
+      return out;
+    }
+
+    function render() {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.02, 0.03, 0.07, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+      let bmin = Number(boxMinEl.value);
+      let bmax = Number(boxMaxEl.value);
+      if (bmin >= bmax) bmax = bmin + 0.1;
+      boxLabel.textContent = `Box: [${bmin.toFixed(1)}, ${bmax.toFixed(1)}]`;
+
+      const proj = mat4.create();
+      mat4.perspective(proj, Math.PI / 4, canvas.width / canvas.height, 0.1, 100);
+      const view = mat4.create();
+      mat4.translate(view, view, [0, 0, zoom]);
+      mat4.rotateX(view, view, rotX);
+      mat4.rotateY(view, view, rotY);
+      if (autoRotateEl.checked && !dragging) rotY += 0.003;
+
+      const m = mat4.create();
+      mat4.multiply(m, proj, view);
+      gl.uniformMatrix4fv(uMat, false, m);
+
+      drawSegments(cubeVerts(bmin, bmax), [0.65, 0.72, 1, 0.55], 1);
+
+      const lines = getLinesFromInputs();
+      const rows = [];
+
+      lines.forEach((line) => {
+        const o = [scene(line.p1[0]), scene(line.p1[1]), scene(line.p1[2]), scene(line.p2[0]), scene(line.p2[1]), scene(line.p2[2])];
+        drawSegments(o, [line.color[0], line.color[1], line.color[2], 0.28], 1);
+
+        const clip = clipLine3D(line.p1, line.p2, bmin, bmax);
+        if (clip.accept) {
+          const c = [scene(clip.q0[0]), scene(clip.q0[1]), scene(clip.q0[2]), scene(clip.q1[0]), scene(clip.q1[1]), scene(clip.q1[2])];
+          drawSegments(c, line.color, 3);
+        }
+
+        rows.push(`<tr><td style="font-weight:700;color:rgb(${Math.round(line.color[0]*255)},${Math.round(line.color[1]*255)},${Math.round(line.color[2]*255)})">${line.name}</td><td><span class="badge ${statusBadge(clip.status)}">${clip.status}</span></td></tr>`);
+      });
+
+      statusBody.innerHTML = rows.join("");
+      requestAnimationFrame(render);
+    }
+
+    document.getElementById("resetView").addEventListener("click", () => {
+      rotX = -0.6;
+      rotY = 0.7;
+      zoom = -8;
+    });
+
+    document.getElementById("randomize").addEventListener("click", () => {
+      const rnd = () => (Math.random() * 8 - 2).toFixed(1);
+      ids.forEach((id) => document.getElementById(id).value = rnd());
+    });
+
+    render();
+  </script>
+</body>
+</html>

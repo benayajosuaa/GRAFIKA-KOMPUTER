@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive AABB Visualization</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #152238;
+      --line: #f8fafc;
+      --poly: #fbbf24;
+      --dot: #38bdf8;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 10%, #13254a, #0b1220 45%, #060b16 100%);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .layout {
+      width: min(1100px, 100%);
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) 280px;
+      gap: 16px;
+    }
+    .panel {
+      background: linear-gradient(180deg, #182945, var(--panel));
+      border: 1px solid #2a3d5d;
+      border-radius: 14px;
+      box-shadow: 0 16px 35px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+    }
+    canvas {
+      width: 100%;
+      display: block;
+      background: #020617;
+      border-bottom: 1px solid #2a3d5d;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #082f49;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .side {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(2, 6, 23, 0.45);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+    .val { color: #7dd3fc; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hint { color: var(--muted); font-size: 0.84rem; line-height: 1.35; margin: 0; }
+    .legend { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 0.86rem; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      canvas { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="panel">
+      <canvas id="canvas" width="780" height="520"></canvas>
+      <div class="toolbar">
+        <button id="randomBtn">Acak Polygon</button>
+        <button id="addBtn" class="secondary">Tambah Titik</button>
+        <button id="removeBtn" class="secondary">Hapus Titik</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;">
+          <input id="fillToggle" type="checkbox" checked /> Isi Polygon
+        </label>
+      </div>
+    </div>
+
+    <div class="panel side">
+      <div class="card">
+        <h3>Statistik AABB</h3>
+        <div class="stat">Min X <span id="minX" class="val">-</span></div>
+        <div class="stat">Max X <span id="maxX" class="val">-</span></div>
+        <div class="stat">Min Y <span id="minY" class="val">-</span></div>
+        <div class="stat">Max Y <span id="maxY" class="val">-</span></div>
+        <div class="stat">Luas Box <span id="area" class="val">-</span></div>
+      </div>
+      <div class="card">
+        <h3>Legenda</h3>
+        <div class="legend"><span class="swatch" style="background:#fbbf24;"></span> Polygon</div>
+        <div class="legend"><span class="swatch" style="background:#ffffff;"></span> Bounding Box</div>
+        <div class="legend"><span class="swatch" style="background:#38bdf8;border-radius:50%;"></span> Vertex Drag</div>
+      </div>
+      <div class="card">
+        <h3>Cara Pakai</h3>
+        <p class="hint">Drag titik biru untuk mengubah bentuk polygon. AABB akan dihitung ulang otomatis.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const fillToggle = document.getElementById("fillToggle");
+
+    const ui = {
+      minX: document.getElementById("minX"),
+      maxX: document.getElementById("maxX"),
+      minY: document.getElementById("minY"),
+      maxY: document.getElementById("maxY"),
+      area: document.getElementById("area")
+    };
+
+    const pad = 45;
+    let dragging = -1;
+    let points = [
+      { x: -0.75, y: 0.05 },
+      { x: -0.3, y: 0.55 },
+      { x: 0.65, y: 0.2 },
+      { x: 0.3, y: -0.75 },
+      { x: -0.4, y: -0.4 }
+    ];
+
+    function worldToCanvas(p) {
+      return {
+        x: pad + ((p.x + 1) * 0.5) * (canvas.width - pad * 2),
+        y: pad + ((1 - (p.y + 1) * 0.5)) * (canvas.height - pad * 2)
+      };
+    }
+
+    function canvasToWorld(x, y) {
+      const nx = (x - pad) / (canvas.width - pad * 2);
+      const ny = 1 - (y - pad) / (canvas.height - pad * 2);
+      return {
+        x: Math.max(-1, Math.min(1, nx * 2 - 1)),
+        y: Math.max(-1, Math.min(1, ny * 2 - 1))
+      };
+    }
+
+    function getAABB() {
+      const xs = points.map((p) => p.x);
+      const ys = points.map((p) => p.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      return { minX, maxX, minY, maxY, area: (maxX - minX) * (maxY - minY) };
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i++) {
+        const x = pad + (i / 10) * (canvas.width - pad * 2);
+        const y = pad + (i / 10) * (canvas.height - pad * 2);
+        ctx.beginPath();
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, canvas.height - pad);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad, y);
+        ctx.lineTo(canvas.width - pad, y);
+        ctx.stroke();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      const box = getAABB();
+      const polyCanvas = points.map(worldToCanvas);
+
+      if (fillToggle.checked) {
+        ctx.fillStyle = "rgba(251,191,36,.2)";
+        ctx.beginPath();
+        ctx.moveTo(polyCanvas[0].x, polyCanvas[0].y);
+        for (let i = 1; i < polyCanvas.length; i++) ctx.lineTo(polyCanvas[i].x, polyCanvas[i].y);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(polyCanvas[0].x, polyCanvas[0].y);
+      for (let i = 1; i < polyCanvas.length; i++) ctx.lineTo(polyCanvas[i].x, polyCanvas[i].y);
+      ctx.closePath();
+      ctx.stroke();
+
+      const b0 = worldToCanvas({ x: box.minX, y: box.minY });
+      const b1 = worldToCanvas({ x: box.maxX, y: box.maxY });
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(b0.x, b1.y, b1.x - b0.x, b0.y - b1.y);
+
+      points.forEach((p, i) => {
+        const c = worldToCanvas(p);
+        ctx.beginPath();
+        ctx.fillStyle = i === dragging ? "#22d3ee" : "#38bdf8";
+        ctx.arc(c.x, c.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      ui.minX.textContent = box.minX.toFixed(3);
+      ui.maxX.textContent = box.maxX.toFixed(3);
+      ui.minY.textContent = box.minY.toFixed(3);
+      ui.maxY.textContent = box.maxY.toFixed(3);
+      ui.area.textContent = box.area.toFixed(3);
+    }
+
+    function nearestVertex(mx, my) {
+      let idx = -1;
+      let minDist = 9999;
+      points.forEach((p, i) => {
+        const c = worldToCanvas(p);
+        const d = Math.hypot(mx - c.x, my - c.y);
+        if (d < minDist) {
+          minDist = d;
+          idx = i;
+        }
+      });
+      return minDist < 16 ? idx : -1;
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      const r = canvas.getBoundingClientRect();
+      dragging = nearestVertex(e.clientX - r.left, e.clientY - r.top);
+      if (dragging >= 0) canvas.setPointerCapture(e.pointerId);
+      draw();
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (dragging < 0) return;
+      const r = canvas.getBoundingClientRect();
+      points[dragging] = canvasToWorld(e.clientX - r.left, e.clientY - r.top);
+      draw();
+    });
+
+    canvas.addEventListener("pointerup", () => { dragging = -1; draw(); });
+    canvas.addEventListener("pointerleave", () => { dragging = -1; draw(); });
+
+    function randomize() {
+      points = points.map(() => ({ x: -0.82 + Math.random() * 1.64, y: -0.82 + Math.random() * 1.64 }));
+      draw();
+    }
+
+    document.getElementById("randomBtn").addEventListener("click", randomize);
+    document.getElementById("addBtn").addEventListener("click", () => {
+      if (points.length >= 10) return;
+      points.push({ x: -0.7 + Math.random() * 1.4, y: -0.7 + Math.random() * 1.4 });
+      draw();
+    });
+    document.getElementById("removeBtn").addEventListener("click", () => {
+      if (points.length <= 3) return;
+      points.pop();
+      draw();
+    });
+    fillToggle.addEventListener("change", draw);
+
+    draw();
+  </script>
+</body>
+</html>
